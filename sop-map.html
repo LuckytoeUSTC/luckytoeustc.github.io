@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title></title>
+<style>
+:root{color-scheme:light;--ink:#22323d;--muted:#5f707b;--paper:#f7f6f1;--canvas:#eef1f2;--rule:#d6dde1;--accent:#2d4c63}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font:14px/1.55 system-ui,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;background:#fff;border:1px solid #c9d3da;border-radius:7px;padding:5px 11px;cursor:pointer}
+button:hover{background:#edf3f7}
+button:focus-visible{outline:3px solid #4f86ad;outline-offset:2px}
+button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+header.top{display:flex;align-items:center;gap:12px;padding:10px 14px 8px 18px}
+header.top h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools{display:flex;gap:8px;align-items:center;margin-left:auto}
+.tg{display:flex;gap:2px;padding:3px;background:#fff;border:1px solid #d3dce2;border-radius:12px}
+.ib{width:36px;height:36px;padding:0;display:grid;place-items:center;border:0;background:transparent;border-radius:9px;color:#3a4d5a}
+.ib:hover{background:#edf3f7}
+.ib[aria-pressed=true]{background:var(--accent);color:#fff}
+.ib svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib.on{background:#e7eef3}
+#info{position:fixed;top:56px;right:14px;width:min(560px,calc(100vw - 28px));max-height:calc(100vh - 80px);overflow:auto;background:#fff;border:1px solid var(--rule);border-radius:14px;box-shadow:0 18px 44px #1c2e3a30;padding:6px 26px 22px;z-index:20;display:none;line-height:1.7;font-size:14.5px}
+#info.open{display:block}
+#info h2{font-size:18px;margin:16px 0 4px}
+#info h3{font-size:14.5px;margin:18px 0 2px;color:#2d4c63}
+#info p{margin:6px 0}
+#info .x{position:sticky;top:6px;float:right;margin-right:-14px}
+.ii svg{width:18px;height:18px;vertical-align:-4px;fill:none;stroke:#2d4c63;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin:0 2px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--c);vertical-align:-1px;margin:0 3px 0 1px}
+.stage{position:relative;flex:1;min-height:420px;margin:0 12px 12px;border:1px solid #cbd6dc;border-radius:12px;overflow:hidden;background:var(--canvas)}
+#viewport{position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+#viewport.dragging{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#world.moving{will-change:transform}
+#world.no-blocks .block,#world.no-blocks .plate,#world.no-blocks .fhead,#world.no-blocks .n-body,#world.no-blocks #g-cross,#world.no-blocks .elabel.cross{visibility:hidden}
+#world.no-over .frame .over,#world.no-over .note .n-over,#world.no-over #g-pair,#world.no-over .elabel.pair{visibility:hidden}
+#world.no-src .b-src .src,#world.no-src .b-src .cap,#world.no-src .note .nr{visibility:hidden}
+#world.no-sum .b-sum,#world.no-sum .b-src:before,#world.no-sum .note .nt{visibility:hidden}
+#world.no-st .b-meta,#world.no-st #g-inner,#world.no-st .elabel.inner,#world.no-st .note .nw{visibility:hidden}
+.cull{visibility:hidden!important}
+#world>div,#world>svg{position:absolute;left:0;top:0}
+#links{overflow:visible;pointer-events:none}
+#links .hit{pointer-events:stroke;cursor:pointer;stroke:transparent;fill:none}
+/* ---------- 段落外框 ---------- */
+.frame{position:absolute;border:4px solid var(--c);border-radius:34px;background:var(--bg);cursor:pointer}
+.frame .fhead{position:absolute;left:40px;right:40px;top:26px;height:96px;opacity:var(--tb);pointer-events:none;display:flex;align-items:baseline;gap:18px;white-space:nowrap}
+.frame .fhead .pn{font-size:46px;font-weight:750;color:var(--c)}
+.frame .fhead .pt{font-size:40px;font-weight:650}
+.frame .fhead .pr{font-size:24px;color:var(--muted);border:2px solid color-mix(in srgb,var(--c) 40%,white);border-radius:30px;padding:0 16px}
+.frame .over{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 60px;opacity:var(--tov);pointer-events:none;gap:18px}
+.frame .over .pn{font-size:170px;line-height:1;font-weight:800;color:var(--c)}
+.frame .over .pt{font-size:102px;line-height:1.2;font-weight:700}
+.frame .over .pg{font-size:80px;line-height:1.35;color:#3e505c;max-width:1340px}
+.plate{position:absolute;border-radius:26px;background:color-mix(in srgb,var(--c) 9%,white);border:2px solid color-mix(in srgb,var(--c) 22%,white);pointer-events:none;opacity:var(--tb)}
+.plate.parallel{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 10%,white) 0 18px,color-mix(in srgb,var(--c) 5%,white) 18px 36px);border-style:solid}
+.plate.lane{border-style:dashed;background:color-mix(in srgb,var(--c) 6%,white)}
+.plate .pl-title{position:absolute;left:26px;top:12px;font-size:22px;font-weight:650;color:color-mix(in srgb,var(--c) 80%,black);opacity:var(--tpl);white-space:nowrap}
+.plate.parallel .pl-title:before{content:"∥ ";font-weight:800}
+/* ---------- 功能块 ---------- */
+.block{position:absolute;background:#fff;border:3px solid color-mix(in srgb,var(--c) 55%,white);border-radius:10px;padding:22px 28px 24px;opacity:var(--tb);cursor:pointer;display:flex;flex-direction:column;gap:10px}
+.block.k-question{border-left:14px solid var(--c);border-radius:8px}
+.block.k-learn{border-top:12px solid color-mix(in srgb,var(--c) 70%,white);border-radius:8px}
+.block.k-experience{border-radius:2px}
+.block.k-object{border:7px double color-mix(in srgb,var(--c) 70%,white);border-radius:2px}
+.block.k-gain{border-radius:64px;padding-left:46px;padding-right:46px}
+.block.k-interest{border-radius:30px}
+.block.k-plan{border:3px dashed var(--c);border-radius:8px}
+.block.k-template{border:4px dotted #8b949b;background:#fbfbfa}
+.b-meta{display:flex;flex-wrap:wrap;gap:8px;opacity:var(--tst);min-height:26px}
+.b-meta span{font-size:17px;line-height:24px;padding:0 10px;border-radius:12px;background:#eef2f4;color:#465863}
+.b-meta .kind{background:color-mix(in srgb,var(--c) 14%,white);color:color-mix(in srgb,var(--c) 80%,black);font-weight:600}
+.b-title{margin:0;font-size:30px;line-height:1.25;font-weight:680;color:color-mix(in srgb,var(--c) 85%,black)}
+.b-sum{margin:0;font-size:24px;line-height:1.5;opacity:var(--ts)}
+.b-src{position:relative;margin-top:4px;padding-top:10px;border-top:2px solid #e5eaed}
+.b-src .cap{font-size:12px;color:#7a8a94;opacity:var(--tsrc);letter-spacing:.02em}
+.b-src .src{margin:2px 0 0;font:13px/1.55 Georgia,"Times New Roman",serif;color:#1f2f3a;opacity:var(--tsrc);overflow-wrap:break-word}
+.b-src:before{content:"";position:absolute;left:0;right:0;top:14px;bottom:4px;opacity:calc(var(--ts) * (1 - var(--tsrc)) * .55);background:repeating-linear-gradient(180deg,#dfe5e9 0 9px,transparent 9px 20px);border-radius:3px;pointer-events:none}
+/* ---------- 酝酿批注 ---------- */
+.note{position:absolute;min-height:540px;background:#fff6e6;border:3px dashed #b77822;border-radius:10px 70px 10px 10px;padding:28px 34px;cursor:pointer;display:flex;flex-direction:column;gap:12px}
+.note:after{content:"";position:absolute;right:-3px;top:-3px;width:70px;height:70px;background:linear-gradient(225deg,var(--canvas) 0 49%,#e8c792 50% 100%);border-radius:0 70px 0 0}
+.note .n-over{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:40px 50px;gap:12px;opacity:var(--tov);pointer-events:none}
+.note .n-over .tag{font-size:52px;color:#9a6420;font-weight:700}
+.note .n-over .tt{font-size:74px;line-height:1.2;color:#6e4612;font-weight:750}
+.note .n-body{display:flex;flex-direction:column;gap:12px;opacity:var(--tb)}
+.note .tag{font-size:16px;color:#9a6420;font-weight:650;letter-spacing:.04em}
+.note .tt{font-size:30px;line-height:1.3;font-weight:700;color:#6e4612;margin:0}
+.note .nt{font-size:22px;line-height:1.55;color:#5a4426;margin:0;opacity:var(--ts)}
+.note .nw{font-size:19px;line-height:1.55;color:#7a5a2c;margin:0;opacity:var(--tst);border-left:4px solid #dcb26f;padding-left:12px}
+.note .nr{font-size:16px;line-height:1.5;color:#7a6a55;margin:0;opacity:var(--tsrc)}
+/* ---------- 关系标签 ---------- */
+.elabel{position:absolute;width:max-content;transform:translate(-50%,-50%);background:#fbfaf6;border:2px solid var(--c);color:color-mix(in srgb,var(--c) 85%,black);border-radius:10px;padding:2px 10px;text-align:center;cursor:pointer;white-space:normal}
+.elabel.cross{font-size:24px;line-height:1.3;max-width:380px}
+.elabel.pair{font-size:72px;line-height:1.22;padding:6px 20px;border-width:4px;border-radius:20px;max-width:470px}
+.elabel.inner{font-size:17px;line-height:1.3;max-width:150px;border-width:1.5px;padding:2px 6px}
+.elabel.inner.wide{max-width:430px}
+.elabel.editorial{border-style:dashed;font-style:italic}
+.elabel.template{border-style:dotted;color:#69737a}
+.elabel .ty{font-weight:700;font-style:normal;margin-right:4px}
+/* ---------- 选中与淡化 ---------- */
+.frame.sel{box-shadow:0 0 0 14px color-mix(in srgb,var(--c) 30%,transparent)}
+.block.sel,.note.sel{box-shadow:0 0 0 8px color-mix(in srgb,var(--c,#b77822) 45%,transparent)}
+.note.sel{box-shadow:0 0 0 8px #e2a54a88}
+.frame.dim{opacity:.4}
+.block.dim{opacity:calc(var(--tb) * .28)}
+.note.dim{opacity:.3}
+.elabel.dim{opacity:.12!important}
+.elabel.sel{box-shadow:0 0 0 5px #2d4c6355}
+/* ---------- 详情 ---------- */
+#panel{position:absolute;top:10px;right:10px;bottom:10px;width:min(420px,calc(100% - 20px));background:#fff;border:1px solid var(--rule);border-top:5px solid var(--pc,#2d4c63);border-radius:12px;box-shadow:0 12px 34px #1c2e3a26;display:flex;flex-direction:column;transform:translateX(calc(100% + 24px));transition:transform .18s ease;z-index:5}
+#panel.open{transform:none}
+#panel .ph{display:flex;align-items:flex-start;gap:8px;padding:14px 16px 8px;border-bottom:1px solid #edf0f2}
+#panel .ph .ttl{flex:1}
+#panel .ph h2{font-size:17px;margin:0 0 4px;line-height:1.35}
+#panel .ph .ids{color:var(--muted);font-size:12px}
+#panel .pb{overflow:auto;padding:6px 16px 18px}
+#panel h3{font-size:13px;margin:16px 0 4px;color:#36566e;letter-spacing:.02em}
+#panel p{margin:4px 0;overflow-wrap:anywhere}
+#panel .source{border-left:3px solid #8d70a6;padding:2px 0 2px 10px;font-family:Georgia,"Times New Roman",serif;font-size:14.5px;line-height:1.6;white-space:pre-wrap}
+#panel .zh{border-left:3px solid #c9d3da;padding-left:10px;color:#3d4d57}
+#panel .badge{display:inline-block;border-radius:5px;padding:1px 7px;margin:0 4px 4px 0;background:#edf2f5;font-size:12.5px}
+#panel .badge.warn{background:#fff1dc;color:#8a5a14}
+#panel .badge.ok{background:#e6f3ec;color:#1f6a45}
+#panel .badge.ed{background:#f1ecf7;color:#5d3f80}
+#panel ul{margin:4px 0;padding-left:18px}
+#panel li{margin:3px 0}
+#panel .link{border:0;background:none;padding:0;color:#245d86;text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}
+#panel .boundary{background:#fff7ea;border:1px solid #f0d9b0;border-radius:8px;padding:6px 10px}
+#panel .review{background:#f3f6f8;border-radius:8px;padding:6px 10px;color:#3e5260}
+#panel .user{background:#fff3df;border-radius:8px;padding:6px 10px}
+#panel .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+/* ---------- 自检 ---------- */
+#testbox{position:absolute;left:10px;top:10px;max-width:min(560px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;background:#fff;border:1px solid var(--rule);border-radius:10px;box-shadow:0 10px 30px #1c2e3a26;padding:10px 14px;z-index:6;font-size:13px;display:none}
+#testbox.show{display:block}
+#testbox .t{display:flex;gap:8px;margin:3px 0}
+#testbox .t b{min-width:34px}
+#testbox .pass b{color:#1f7a4a}
+#testbox .fail b{color:#b3261e}
+#testbox .d{color:var(--muted)}
+.help{padding:0 18px 10px;color:var(--muted);font-size:12.5px}
+@media (max-width:900px){
+  header.top h1{font-size:14px}
+  .ib{width:32px;height:32px}
+  .tools{gap:4px}
+  .stage{margin:0 6px 6px}
+  #panel{top:auto;left:6px;right:6px;width:auto;height:52%;bottom:6px;transform:translateY(calc(100% + 20px))}
+}
+@media (max-width:620px){header.top h1{display:none}.tools{margin-left:0;flex-wrap:wrap}}
+@media (prefers-reduced-motion:reduce){#panel{transition:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 id="app-title"></h1>
+  <div class="tools">
+    <div class="tg" role="group">
+      <button class="ib" data-level="1" data-tip="lv1"><svg viewBox="0 0 24 24"><circle cx="5.5" cy="6.5" r="2.5"/><circle cx="18.5" cy="6.5" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 6.5h8M6.8 8.8l3.8 6.9M17.2 8.8l-3.8 6.9"/></svg></button>
+      <button class="ib" data-level="2" data-tip="lv2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5"/><rect x="6.5" y="6.5" width="4.2" height="4.2" rx=".8"/><rect x="13.3" y="6.5" width="4.2" height="4.2" rx=".8"/><rect x="6.5" y="13.3" width="11" height="4.2" rx=".8"/></svg></button>
+      <button class="ib" data-level="3" data-tip="lv3"><svg viewBox="0 0 24 24"><rect x="2.8" y="3.5" width="7.4" height="6" rx="1.5"/><rect x="13.8" y="3.5" width="7.4" height="6" rx="1.5"/><rect x="8.3" y="15" width="7.4" height="5.5" rx="1.5"/><path d="M10.2 6.5h3.6M6.5 9.5v3h5.5V15M17.5 9.5v3H12"/></svg></button>
+      <button class="ib" data-level="4" data-tip="lv4"><svg viewBox="0 0 24 24"><path d="M4 5.5h16M4 9.8h16M4 14.1h16M4 18.4h10"/></svg></button>
+    </div>
+    <div class="tg" role="group">
+      <button class="ib" id="btn-out" data-tip="out"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20.5 20.5M7.5 10.5h6"/></svg></button>
+      <button class="ib" id="btn-in" data-tip="in"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20.5 20.5M7.5 10.5h6M10.5 7.5v6"/></svg></button>
+      <button class="ib" id="btn-fit" data-tip="fit"><svg viewBox="0 0 24 24"><path d="M4 9V5.2C4 4.5 4.5 4 5.2 4H9M15 4h3.8c.7 0 1.2.5 1.2 1.2V9M20 15v3.8c0 .7-.5 1.2-1.2 1.2H15M9 20H5.2C4.5 20 4 19.5 4 18.8V15"/></svg></button>
+    </div>
+    <div class="tg" role="group">
+      <button class="ib" id="btn-test" data-tip="test"><svg viewBox="0 0 24 24"><path d="M12 3.2 19 6v5.2c0 4.4-2.9 7.9-7 9.6-4.1-1.7-7-5.2-7-9.6V6z"/><path d="M8.8 12.2l2.2 2.2 4.2-4.6"/></svg></button>
+      <button class="ib" id="btn-lang" data-tip="lang"><svg viewBox="0 0 24 24"><path d="M2.8 5.6h10.4M8 3v2.6"/><path d="M11.2 5.6c-.9 4.7-3.5 8.3-7.6 10.6"/><path d="M5.6 9.6c1.4 2.8 3.3 4.8 5.7 6.3"/><path d="M13.6 21l3.6-9.6h1.4L22.2 21M14.9 17.8h6"/></svg></button>
+      <button class="ib" id="btn-info" data-tip="info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.6"/><path d="M12 7.6v.1" stroke-width="2.6"/></svg></button>
+    </div>
+  </div>
+</header>
+<div id="info" role="dialog" aria-modal="false"><button class="ib x" id="btn-info-close" data-tip="close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button><div id="info-body"></div></div>
+<div class="stage">
+  <div id="viewport" role="application" aria-label="">
+    <div id="world">
+      <div id="frames"></div>
+      <svg id="links" xmlns="http://www.w3.org/2000/svg"><g id="g-pair"></g><g id="g-cross"></g><g id="g-inner"></g><g id="g-note"></g></svg>
+      <div id="nodes"></div>
+      <div id="labels"></div>
+    </div>
+  </div>
+  <aside id="panel" aria-live="polite">
+    <div class="ph"><div class="ttl"><h2 id="pt"></h2><div class="ids" id="pids"></div></div><button class="ib" id="btn-close" data-tip="close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="pb" id="pbody"></div>
+  </aside>
+  <div id="testbox"></div>
+</div>
+<script id="sop-data" type="application/json">{"meta": {"title": "Neuro SOP v26 · 语义缩放结构图", "title_en": "Neuro SOP v26 · Semantic zoom map", "version": "v26", "source": "source/Neuro_SOP_v26_English.md", "contentPolicy": "原文逐字保留。功能划分和关系标签是编辑性结构解读，不是新增的个人经历或科学结论。", "reviewPolicy": "块名、摘要、分组、内部边与跨段边全部允许 Opus 重新判断。本人原话和 SOP 原文属于依据，不能将编辑标签反写成已确认的新经历或动机。"}, "layout": {"grid": {"p1": [0, 0], "p2": [1, 0], "p3": [2, 0], "p4": [3, 0], "p8": [0, 1], "p7": [1, 1], "p6": [2, 1], "p5": [3, 1]}, "notes": {"n1": {"under": "p2"}, "n2": {"under": "p8"}, "n3": {"under": "p8"}, "n4": {"under": "p8"}}}, "version": "v26", "sourceSha256": "2eee824adb2f807107181fb5f3b0a5ff9787e4e87ccf2078110c2d6bfe6de864", "fileHeader": "# Statement of Purpose\r\n\r\n", "paragraphJoiner": "\r\n\r\n", "fileTail": "\r\n", "contentPolicy": "原文逐字保留。功能划分和关系标签是编辑性结构解读，不是新增的个人经历或科学结论。", "reviewPolicy": "块名、摘要、分组、内部边与跨段边全部允许 Opus 重新判断。本人原话和 SOP 原文属于依据，不能将编辑标签反写成已确认的新经历或动机。", "paragraphs": [{"id": "p1", "title": "理论与神经系统", "role": "开篇定位", "category": "position", "gist": "总问题、物理思路与理论立场，收束为 PhD 目标", "structure": "开篇先提出总问题；物理视角与理论观说明怎样接近它；末句把“这些问题”收为 PhD 目标。文章按主题组织，并非科研认知发生的时间顺序。", "boundary": "文章按主题组织，不模拟作者认知形成的先后。毕设只是整体科学兴趣的一部分。", "number": 1, "sourceText": "I want to understand how the collective activity of neurons gives rise to learning and cognition. Theoretical physics taught me to look for structures shared by very different systems. I now want to bring that approach to neuroscience. Theory gives us a framework for explaining what we observe, but the richness of neural systems keeps raising questions that our models have yet to answer. I want to take on those questions in a PhD program in theoretical and computational neuroscience.", "sourceChinese": "我想理解神经元的集体活动如何产生学习与认知。理论物理让我学会在很不一样的系统中寻找共有的结构。我现在想把这种思路带到神经科学。理论为我们提供了解释观察结果的框架，而神经系统的丰富性不断带来现有模型还回答不了的问题。我想在理论与计算神经科学的博士阶段研究这些问题。", "blocks": [{"id": "p1-goal", "title": "总问题：集体活动与认知", "kind": "question", "status": "研究愿景", "summary": "我想理解：神经元的集体活动怎样产生学习与认知。", "sourceStart": 0, "sourceEnd": 97, "sourceText": "I want to understand how the collective activity of neurons gives rise to learning and cognition.", "cell": {"r": 0, "c": 0, "cs": 2, "rs": 1}, "title_en": "Central question: collective activity and cognition", "status_en": "Research vision", "summary_en": "How the collective activity of neurons gives rise to learning and cognition."}, {"id": "p1-physics", "title": "物理视角", "kind": "interest", "status": "已有训练与兴趣", "summary": "理论物理教我在差异很大的系统中寻找共享结构；现在想把这种思路带进神经科学。", "sourceStart": 98, "sourceEnd": 235, "sourceText": "Theoretical physics taught me to look for structures shared by very different systems. I now want to bring that approach to neuroscience.", "cell": {"r": 1, "c": 0, "cs": 1, "rs": 1}, "title_en": "A physics perspective", "status_en": "Existing training and interest", "summary_en": "Theoretical physics taught a habit of looking for structures shared by very different systems; the aim now is to bring that habit to neuroscience."}, {"id": "p1-theory", "title": "理论与丰富现象", "kind": "interest", "status": "理念已写，经验联系待酝酿", "summary": "理论提供解释观察的框架，而神经系统的丰富性不断提出现有模型尚未回答的问题。", "sourceStart": 236, "sourceEnd": 390, "sourceText": "Theory gives us a framework for explaining what we observe, but the richness of neural systems keeps raising questions that our models have yet to answer.", "cell": {"r": 1, "c": 1, "cs": 1, "rs": 1}, "title_en": "Theory and the richness of phenomena", "status_en": "View stated; link to experience still developing", "summary_en": "Theory offers a framework for explaining what we observe, while the richness of neural systems keeps raising questions that current models cannot yet answer."}, {"id": "p1-phd", "title": "PhD 目标", "kind": "plan", "status": "申请目标", "summary": "想在理论与计算神经科学 PhD 中研究这些问题。", "sourceStart": 391, "sourceEnd": 488, "sourceText": "I want to take on those questions in a PhD program in theoretical and computational neuroscience.", "cell": {"r": 2, "c": 0, "cs": 2, "rs": 1}, "title_en": "The PhD goal", "status_en": "Application goal", "summary_en": "To take on these questions in a PhD in theoretical and computational neuroscience."}], "title_en": "Theory and neural systems", "role_en": "Opening position", "gist_en": "The central question, a physicist's approach, and the PhD goal", "structure_en": "The paragraph opens with the central question; the physics perspective and the view of theory say how to approach it; the last sentence turns “those questions” into the PhD goal. The essay is organized by theme, not by the order in which the author's ideas formed.", "boundary_en": "The essay is organized by theme and does not reconstruct the order in which the author's understanding developed. The undergraduate thesis is only one part of a broader scientific interest.", "groups": [{"id": "p1-g1", "title": "怎样接近：方法与理论观", "blocks": ["p1-physics", "p1-theory"], "form": "plate", "title_en": "How to approach it: method and view of theory"}], "internalEdges": [{"id": "p1-i1", "from": "p1-goal", "to": "p1-physics", "type": "method", "status": "text", "label": "以物理思路接近总问题", "reason": "“I now want to bring that approach to neuroscience” 把物理思路指向开篇的问题。", "label_en": "Approaching the question with a physicist's habit", "reason_en": "“I now want to bring that approach to neuroscience” points the physics approach at the opening question."}, {"id": "p1-i2", "from": "p1-physics", "to": "p1-theory", "type": "elaboration", "status": "editorial", "label": "从方法背景到理论立场", "reason": "两句都谈理论的作用：前者是方法训练，后者是对理论与现象关系的看法。", "label_en": "From method to a view of theory", "reason_en": "Both sentences concern what theory does: the first is training in method, the second a view of how theory relates to phenomena."}, {"id": "p1-i3", "from": "p1-theory", "to": "p1-phd", "type": "purpose", "status": "text", "label": "“those questions”成为 PhD 目标", "reason": "末句 “take on those questions” 直接指回上一句模型尚未回答的问题。", "label_en": "“Those questions” become the PhD goal", "reason_en": "The last sentence, “take on those questions”, refers back to the questions that models have yet to answer."}]}, {"id": "p2", "title": "数学工具与物理思想", "role": "学术准备", "category": "position", "gist": "数学工具与系综思想并列，引出连接–活动–功能问题", "structure": "数学工具与统计物理视角并列；系综视角给出一个具体的神经问题；replica 是另一条“技术迁移”的例子，不是前一问题的答案。", "boundary": "Wen 组提供的 replica 材料与 Hu–Sompolinsky 自由概率论文是两份材料；前者的来源已在项目中核对，不因网络检索不到而删去这一联系。", "number": 2, "sourceText": "Several courses from my physics training have been especially useful in computational neuroscience. Linear algebra, probability, and statistics gave me tools to build models and calculate their predictions. At UC Berkeley, my course in statistical and thermal physics showed me how ensembles connect microscopic states to macroscopic behavior. This view gives me a starting point for a more specific question in computational neuroscience: how does the way neurons are connected shape their collective activity, and how does that activity support representation and behavior? The replica trick is one example of a mathematical technique that carries over from physics to neuroscience. I presented it in a quantum gravity reading group at Berkeley and later saw it used to calculate the covariance spectrum of a structured recurrent network.", "sourceChinese": "物理训练中，有几门课对我学习计算神经科学尤其有帮助。线性代数和概率论与数理统计为我建模和计算模型的预测提供了工具。在伯克利，我通过统计与热物理课学到，系综怎样把微观状态和宏观行为联系起来。这一视角为我理解计算神经科学中一个更具体的问题提供了起点：神经元的连接方式怎样塑造集体活动，这些活动又怎样支持表征和行为？Replica trick 是物理方法能够用于神经科学的一个例子。我在伯克利的量子引力读书组介绍过这一数学技巧，后来看到它也可用来求结构化递归网络的活动协方差谱。", "blocks": [{"id": "p2-math", "title": "数学工具", "kind": "learn", "status": "已学", "summary": "物理训练中的线性代数、概率与统计，为建立模型、计算模型预测提供工具。", "sourceStart": 0, "sourceEnd": 206, "sourceText": "Several courses from my physics training have been especially useful in computational neuroscience. Linear algebra, probability, and statistics gave me tools to build models and calculate their predictions.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "Mathematical tools", "status_en": "Learned", "summary_en": "Linear algebra, probability and statistics from physics training give tools for building models and computing their predictions."}, {"id": "p2-ensemble", "title": "系综思想", "kind": "learn", "status": "已学", "summary": "伯克利的统计与热物理课：系综怎样把微观状态与宏观行为联系起来。", "sourceStart": 207, "sourceEnd": 343, "sourceText": "At UC Berkeley, my course in statistical and thermal physics showed me how ensembles connect microscopic states to macroscopic behavior.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "Ensemble thinking", "status_en": "Learned", "summary_en": "A Berkeley course in statistical and thermal physics: how ensembles connect microscopic states to macroscopic behavior."}, {"id": "p2-question", "title": "连接、活动与功能", "kind": "question", "status": "理论切口", "summary": "由这一视角出发的具体问题：连接方式怎样塑造集体活动，活动又怎样支持表征与行为？", "sourceStart": 344, "sourceEnd": 575, "sourceText": "This view gives me a starting point for a more specific question in computational neuroscience: how does the way neurons are connected shape their collective activity, and how does that activity support representation and behavior?", "cell": {"r": 1, "c": 1, "cs": 1, "rs": 1}, "title_en": "Connections, activity and function", "status_en": "Theoretical entry point", "summary_en": "A specific question from this view: how does connectivity shape collective activity, and how does that activity support representation and behavior?"}, {"id": "p2-replica", "title": "技术迁移的例子：replica", "kind": "experience", "status": "报告及阅读经历", "summary": "在伯克利量子引力读书组报告过 replica trick，后来看到它被用于计算结构化递归网络的协方差谱。", "sourceStart": 576, "sourceEnd": 840, "sourceText": "The replica trick is one example of a mathematical technique that carries over from physics to neuroscience. I presented it in a quantum gravity reading group at Berkeley and later saw it used to calculate the covariance spectrum of a structured recurrent network.", "cell": {"r": 1, "c": 0, "cs": 1, "rs": 1}, "title_en": "A transferred technique: the replica trick", "status_en": "Presentation and reading", "summary_en": "Presented the replica trick at a quantum gravity reading group at Berkeley, then saw it used to compute the covariance spectrum of a structured recurrent network."}], "title_en": "Mathematical tools and physical ideas", "role_en": "Academic preparation", "gist_en": "Tools and ensemble thinking lead to a question on connectivity", "structure_en": "Mathematical tools and the statistical-physics view stand side by side; the ensemble view yields a specific neural question; the replica trick is a separate example of a technique carrying over, not an answer to that question.", "boundary_en": "The replica material provided by Wen's group and the Hu–Sompolinsky free-probability paper are two different sources. The source of the former has been checked within the project, and the link is kept even if a web search does not find it.", "groups": [{"id": "p2-g1", "title": "两类准备 · 并列", "blocks": ["p2-math", "p2-ensemble"], "form": "parallel", "title_en": "Two kinds of preparation, side by side"}], "internalEdges": [{"id": "p2-i1", "from": "p2-math", "to": "p2-ensemble", "type": "parallel", "status": "editorial", "label": "工具与物理思想并列", "reason": "两句分别介绍课程工具与统计物理视角，彼此没有推导关系。", "label_en": "Tools and ideas, side by side", "reason_en": "The two sentences introduce coursework tools and the statistical-physics view; neither is derived from the other."}, {"id": "p2-i2", "from": "p2-ensemble", "to": "p2-question", "type": "elaboration", "status": "text", "label": "“This view”给出具体问题的起点", "reason": "原文 “This view gives me a starting point for a more specific question”。", "label_en": "“This view” gives the starting point", "reason_en": "The text says: “This view gives me a starting point for a more specific question”."}, {"id": "p2-i3", "from": "p2-math", "to": "p2-replica", "type": "example", "status": "text", "label": "数学技巧跨学科迁移的例子", "reason": "原文 “one example of a mathematical technique that carries over from physics to neuroscience”。", "label_en": "An example of a technique carrying over", "reason_en": "The text says: “one example of a mathematical technique that carries over from physics to neuroscience”."}]}, {"id": "p3", "title": "Berkeley 的实践与启发", "role": "科研训练与兴趣拓展", "category": "experience", "gist": "计算实践带来复现与沟通能力；seminar 另开生物物理兴趣", "structure": "两条并列支线：计算实践带来复现与沟通两种能力；seminar 启发了对生命系统理论的兴趣。听 seminar 不是数值计算的结果。", "boundary": "两种收获并列：代码复现进入理论，seminar 带来生命现象启发。不能画成英语沟通导致参加 seminar，或计算导致兴趣转向。", "number": 3, "sourceText": "At Berkeley, I worked with Malcolm Lazarow in Professor Raúl Briceño’s group. I started with a harmonic oscillator and wrote Monte Carlo code to estimate its energy gap from a correlation function. That calculation helped me see how physical quantities can be extracted from numerical simulations. From there, I began to understand the basic idea behind the Lüscher formalism: how two-particle energy levels in a finite box relate to scattering phase shifts. By reproducing calculations with existing code, I learned a way to quickly understand abstract theories. I also learned to explain the objectives of my calculations and their physical motivation in English. The seminars I attended at Berkeley changed what I wanted to study. In a seminar on nonequilibrium statistical physics, I saw how physicists ask similar questions about collective motion in groups of cells and in flocks of birds. A seminar on protein structure prediction made me wonder why alternative conformations, including metastable states, are still hard to predict and how evolutionary changes affect protein function. I began to see how much room there was for theory in the study of living systems. That possibility drew me to biophysics.", "sourceChinese": "在伯克利，我在 Raúl Briceño 教授的课题组跟随 Malcolm Lazarow 做研究。我从简谐振子入手，编写 Monte Carlo 代码，从关联函数中估计能隙。这个计算让我看到怎样从数值模拟中提取物理量。由此，我开始理解 Lüscher formalism 的基本思想：有限盒子中的两粒子能级怎样与散射相移联系起来。通过利用现有代码复现计算，我学到了一种快速理解抽象理论的方法。我也学会了用英语说明计算的目标及其物理动机。我在伯克利参加的一些学术研讨改变了我想研究的对象。一次关于非平衡统计物理的研讨让我看到，物理学家怎样对细胞群和鸟群的集体运动提出相似的问题。蛋白质结构预测的研讨则让我想知道，为什么包括亚稳态在内的其他构象仍然难以预测，以及演化中的变化怎样影响蛋白质的功能。我开始看到，生命现象为理论留下了多大的发问空间，也因此对生物物理产生了兴趣。", "blocks": [{"id": "p3-computation", "title": "计算实践：从 MC 到 Lüscher", "kind": "experience", "status": "计算及学习经历", "summary": "在 Briceño 组跟随 Malcolm Lazarow，用 Monte Carlo 从关联函数估计谐振子能隙，看到怎样从模拟中提取物理量，并开始理解 Lüscher 方法的基本思想。", "sourceStart": 0, "sourceEnd": 458, "sourceText": "At Berkeley, I worked with Malcolm Lazarow in Professor Raúl Briceño’s group. I started with a harmonic oscillator and wrote Monte Carlo code to estimate its energy gap from a correlation function. That calculation helped me see how physical quantities can be extracted from numerical simulations. From there, I began to understand the basic idea behind the Lüscher formalism: how two-particle energy levels in a finite box relate to scattering phase shifts.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "Computation: from Monte Carlo to Lüscher", "status_en": "Computation and study", "summary_en": "With Malcolm Lazarow in Briceño's group: Monte Carlo estimates of an oscillator's energy gap from a correlation function, seeing how physical quantities come out of simulations, and beginning to grasp the idea behind the Lüscher formalism."}, {"id": "p3-skills", "title": "复现与科研沟通", "kind": "gain", "status": "本人认可的能力收获", "summary": "借现有代码复现计算，学到快速理解抽象理论的方法；也学会用英语说明计算目标与物理动机。", "sourceStart": 459, "sourceEnd": 665, "sourceText": "By reproducing calculations with existing code, I learned a way to quickly understand abstract theories. I also learned to explain the objectives of my calculations and their physical motivation in English.", "cell": {"r": 1, "c": 0, "cs": 1, "rs": 1}, "title_en": "Reproducing calculations, explaining research", "status_en": "Skills the author recognizes", "summary_en": "Reproducing calculations with existing code as a fast way into abstract theory; explaining the goals and physical motivation of calculations in English."}, {"id": "p3-seminars", "title": "seminar：生命现象的理论空间", "kind": "experience", "status": "兴趣形成经历", "summary": "非平衡统计物理与蛋白质结构预测的 seminar，让我看到生命系统中理论的发问空间，并被生物物理吸引。", "sourceStart": 666, "sourceEnd": 1214, "sourceText": "The seminars I attended at Berkeley changed what I wanted to study. In a seminar on nonequilibrium statistical physics, I saw how physicists ask similar questions about collective motion in groups of cells and in flocks of birds. A seminar on protein structure prediction made me wonder why alternative conformations, including metastable states, are still hard to predict and how evolutionary changes affect protein function. I began to see how much room there was for theory in the study of living systems. That possibility drew me to biophysics.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 2}, "title_en": "Seminars: room for theory in living systems", "status_en": "How an interest formed", "summary_en": "Seminars on nonequilibrium statistical physics and protein structure prediction showed how much room there is for theory in living systems, and drew the author to biophysics."}], "title_en": "Practice and inspiration at Berkeley", "role_en": "Research training and widening interests", "gist_en": "Computation builds skills; seminars open up biophysics", "structure_en": "Two parallel strands: computational practice yields two skills, reproducing calculations and explaining them; the seminars spark an interest in theory for living systems. Attending the seminars is not a result of the numerical work.", "boundary_en": "There are two parallel gains: reproducing code as a way into theory, and seminars as a source of questions about living systems. English communication must not be drawn as leading to the seminars, nor the computation as causing the shift of interest.", "groups": [{"id": "p3-g1", "title": "支线一 · 计算实践与收获", "blocks": ["p3-computation", "p3-skills"], "form": "lane", "title_en": "Strand one: computation and its gains"}, {"id": "p3-g2", "title": "支线二 · seminar 启发", "blocks": ["p3-seminars"], "form": "lane", "title_en": "Strand two: seminars"}], "internalEdges": [{"id": "p3-i1", "from": "p3-computation", "to": "p3-skills", "type": "result", "status": "text", "label": "复现计算带来的两种能力", "reason": "原文 “By reproducing calculations with existing code, I learned…”，收获直接来自上述计算。", "label_en": "Two skills from reproducing calculations", "reason_en": "The text says “By reproducing calculations with existing code, I learned…”; the gains come directly from the computation."}, {"id": "p3-i2", "from": "p3-computation", "to": "p3-seminars", "type": "parallel", "status": "editorial", "label": "两条并列的 Berkeley 收获", "reason": "seminar 一句另起话题，没有写成计算的结果；按并列支线处理。", "label_en": "Two parallel gains", "reason_en": "The seminar sentence starts a new topic and is not written as a result of the computation, so the two are parallel strands."}]}, {"id": "p4", "title": "侯组的生物物理实践", "role": "使用并考察已有模型", "category": "experience", "gist": "用已有代码考察反应–相分离模型，获得模拟研究经验", "structure": "模型机制交代研究对象，行动说明本人实际参与，末块归纳能力收获。", "boundary": "不能凭代码内容推断本人观察到新规律或完成了数值稳定性验证。", "number": 4, "sourceText": "In Professor Zhonghuai Hou’s group, I worked with a Cahn–Hilliard model of phase separation that includes reactions between RNA and proteins. In the model, two types of RNA–protein complexes can form droplets and compete for the same supply of free protein. The model tracks the local concentrations of these complexes as molecules bind, dissociate, and diffuse. Using existing MATLAB code, I varied model parameters and examined how the droplet patterns changed over time. I examined the assumptions behind this continuum description and the numerical scheme used to evolve the concentration fields, and discussed both in group meetings. I learned to use a continuum model to connect molecular interactions with patterns at the scale of a droplet, and gained firsthand experience with simulation-based research.", "sourceChinese": "在侯中怀教授的课题组，我使用了一个描述相分离的 Cahn–Hilliard 模型，其中包含 RNA 和蛋白质之间的反应。在模型中，两类 RNA–蛋白质复合物都能形成液滴，并竞争同一批游离蛋白。模型追踪这些复合物的局部浓度随分子的结合、解离和扩散怎样变化。我用已有的 MATLAB 代码改变模型参数，考察液滴图案怎样随时间演化。我考察了这一连续场描述所用的假设，以及求解浓度场演化的数值计算方案，并在组会上讨论了这两方面。我学会用连续场模型把分子相互作用和液滴尺度的图案联系起来，也亲身体验了以模拟为主的研究。", "blocks": [{"id": "p4-model", "title": "模型：反应与相分离", "kind": "object", "status": "研究对象", "summary": "含 RNA–蛋白反应的 Cahn–Hilliard 相分离模型：两类复合物形成液滴并竞争同一批游离蛋白，模型追踪局部浓度随结合、解离与扩散的变化。", "sourceStart": 0, "sourceEnd": 362, "sourceText": "In Professor Zhonghuai Hou’s group, I worked with a Cahn–Hilliard model of phase separation that includes reactions between RNA and proteins. In the model, two types of RNA–protein complexes can form droplets and compete for the same supply of free protein. The model tracks the local concentrations of these complexes as molecules bind, dissociate, and diffuse.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "The model: reactions and phase separation", "status_en": "Object of study", "summary_en": "A Cahn–Hilliard phase-separation model with RNA–protein reactions: two kinds of complexes form droplets and compete for the same free protein, and the model tracks local concentrations through binding, dissociation and diffusion."}, {"id": "p4-actions", "title": "模拟、考察与讨论", "kind": "experience", "status": "实际参与；措辞依据 CV", "summary": "用已有 MATLAB 代码改变参数，观察液滴图案随时间的变化；考察连续描述的假设与浓度场的数值方案，并在组会上讨论。", "sourceStart": 363, "sourceEnd": 638, "sourceText": "Using existing MATLAB code, I varied model parameters and examined how the droplet patterns changed over time. I examined the assumptions behind this continuum description and the numerical scheme used to evolve the concentration fields, and discussed both in group meetings.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "Simulating, examining, discussing", "status_en": "Actual involvement; wording follows the CV", "summary_en": "Varied parameters in existing MATLAB code and watched the droplet patterns evolve; examined the assumptions of the continuum description and the numerical scheme, and discussed both in group meetings."}, {"id": "p4-gains", "title": "跨尺度描述与模拟训练", "kind": "gain", "status": "本人认可的收获", "summary": "学会用连续场模型连接分子相互作用与液滴尺度的图案，亲身体验以模拟为主的研究。", "sourceStart": 639, "sourceEnd": 812, "sourceText": "I learned to use a continuum model to connect molecular interactions with patterns at the scale of a droplet, and gained firsthand experience with simulation-based research.", "cell": {"r": 1, "c": 0, "cs": 2, "rs": 1}, "title_en": "Cross-scale description and simulation experience", "status_en": "Gains the author recognizes", "summary_en": "Learned to use a continuum model to link molecular interactions with droplet-scale patterns, and gained firsthand experience of simulation-based research."}], "title_en": "Biophysics practice in Hou's group", "role_en": "Using and examining an existing model", "gist_en": "Examining a phase-separation model with existing code", "structure_en": "The model and its mechanism set out the object of study; the actions describe the author's actual involvement; the last block sums up what was learned.", "boundary_en": "Nothing about the code should be read as the author having found a new pattern or having verified numerical stability.", "groups": [], "internalEdges": [{"id": "p4-i1", "from": "p4-model", "to": "p4-actions", "type": "action", "status": "text", "label": "在这一模型上开展工作", "reason": "“Using existing MATLAB code, I varied model parameters…” 的对象就是上一句的模型。", "label_en": "Working on this model", "reason_en": "“Using existing MATLAB code, I varied model parameters…” acts on the model just described."}, {"id": "p4-i2", "from": "p4-actions", "to": "p4-gains", "type": "result", "status": "text", "label": "形成能力收获", "reason": "末句 “I learned… and gained firsthand experience” 总结上述工作。", "label_en": "Leading to skills gained", "reason_en": "The last sentence, “I learned… and gained firsthand experience”, sums up the work."}]}, {"id": "p5", "title": "神经理论的吸引力", "role": "研究口味与具体追问", "category": "theory", "gist": "解析推导的清晰感与脑功能现象，两种并列的吸引力", "structure": "形式理论的吸引力由能量函数的例子具体呈现；脑功能现象是并列的另一种吸引力，两者不是因果。", "boundary": "形式清晰与脑功能吸引力是并列理由，不写成“因为……所以……”。", "number": 5, "sourceText": "I have long been drawn to the elegance of mathematical formalism in physics. After working mainly with simulations in Professor Hou’s group, I came to appreciate how analytical work in computational neuroscience could be just as important as simulation or experiment. I particularly liked the clarity of the derivations. In the attractor network I learned about in class, symmetric connections let us construct a scalar energy function to analyze how the network evolves. That made me ask how the analysis might change if the connections were asymmetric. The phenomena that computational neuroscience seeks to explain also interested me. I was surprised that physical theories could help us study learning, memory, attention, and language.", "sourceChinese": "我很早就被物理中数学形式体系的简洁之美吸引。在侯老师组里主要进行模拟研究之后，我逐渐体会到，计算神经科学中，对模型做解析推导可以和做模拟或实验同样重要。我尤其喜欢这些推导的清晰感。在课上学到的吸引子网络里，对称的连接让我们能够构造一个标量能量函数，用它分析网络如何演化。这也让我想知道，如果连接不对称，分析方法会怎样改变。计算神经科学试图解释的现象同样让我感兴趣。令我惊讶的是，物理理论也能帮助我们研究学习、记忆、注意力和语言。", "blocks": [{"id": "p5-formalism", "title": "解析工作的吸引力", "kind": "interest", "status": "本人真实反思", "summary": "一直被物理中数学形式之美吸引；在侯组主要做模拟之后，体会到解析工作同样重要，尤其喜欢推导的清晰。", "sourceStart": 0, "sourceEnd": 320, "sourceText": "I have long been drawn to the elegance of mathematical formalism in physics. After working mainly with simulations in Professor Hou’s group, I came to appreciate how analytical work in computational neuroscience could be just as important as simulation or experiment. I particularly liked the clarity of the derivations.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "The appeal of analytical work", "status_en": "The author's own reflection", "summary_en": "Long drawn to the elegance of mathematical formalism; after mainly simulating in Hou's group, came to see analytical work as just as important, and liked the clarity of the derivations."}, {"id": "p5-energy", "title": "能量函数与非对称追问", "kind": "question", "status": "课堂学习与追问", "summary": "课上的吸引子网络：对称连接允许构造标量能量函数分析演化；由此追问连接不对称时分析会怎样改变。", "sourceStart": 321, "sourceEnd": 554, "sourceText": "In the attractor network I learned about in class, symmetric connections let us construct a scalar energy function to analyze how the network evolves. That made me ask how the analysis might change if the connections were asymmetric.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "Energy functions and the asymmetric case", "status_en": "Coursework and a follow-up question", "summary_en": "In the attractor network from class, symmetric connections allow a scalar energy function for analyzing the dynamics; this raised the question of how the analysis changes when connections are asymmetric."}, {"id": "p5-phenomena", "title": "脑功能的吸引力", "kind": "interest", "status": "并列兴趣", "summary": "计算神经科学要解释的现象同样吸引我：物理理论竟能帮助研究学习、记忆、注意力与语言。", "sourceStart": 555, "sourceEnd": 739, "sourceText": "The phenomena that computational neuroscience seeks to explain also interested me. I was surprised that physical theories could help us study learning, memory, attention, and language.", "cell": {"r": 1, "c": 0, "cs": 2, "rs": 1}, "title_en": "The appeal of brain function", "status_en": "Parallel interest", "summary_en": "The phenomena computational neuroscience explains are interesting in themselves: physical theory can help study learning, memory, attention and language."}], "title_en": "The appeal of neural theory", "role_en": "Research taste and a concrete question", "gist_en": "Clear derivations and brain phenomena: two parallel attractions", "structure_en": "The appeal of formal theory is made concrete by the energy-function example; the phenomena of brain function are a second, parallel attraction. The two are not cause and effect.", "boundary_en": "Formal clarity and the appeal of brain function are parallel reasons; they must not be written as “because … therefore …”.", "groups": [{"id": "p5-g1", "title": "吸引力一 · 形式理论", "blocks": ["p5-formalism", "p5-energy"], "form": "plate", "title_en": "First attraction: formal theory"}, {"id": "p5-g2", "title": "吸引力二 · 研究对象", "blocks": ["p5-phenomena"], "form": "plate", "title_en": "Second attraction: the phenomena"}], "internalEdges": [{"id": "p5-i1", "from": "p5-formalism", "to": "p5-energy", "type": "example", "status": "editorial", "label": "具体例子：能量构造与追问", "reason": "能量函数是“推导清晰”的一个具体场景；原文未写“例如”，按例证理解。", "label_en": "A concrete case", "reason_en": "The energy function is one concrete setting for the “clarity of the derivations”; the text has no “for example”, so this is read as an illustration."}, {"id": "p5-i2", "from": "p5-formalism", "to": "p5-phenomena", "type": "parallel", "status": "text", "label": "两种并列的吸引力", "reason": "原文 “The phenomena… also interested me”，“also” 表明并列。", "label_en": "Two parallel attractions", "reason_en": "The text says “The phenomena… also interested me”; “also” marks a parallel reason."}]}, {"id": "p6", "title": "当前研究：谱与任务", "role": "已学工作与整合愿望", "category": "theory", "gist": "协方差谱与有限取样的学习，转向任务信息的三角框架", "structure": "前半是已开展的协方差谱与有限取样学习、跟推；后半转向任务信息，并在师兄指导下看到三个相互联系的问题。两类“有限”不是同一问题。", "boundary": "后半的三角框架是指导下的问题与整合愿望，不是已完成的独立理论成果，也不是取样修正的数学推论。", "number": 6, "sourceText": "My current undergraduate research project asks how to describe the collective activity of a recurrent neural network and what that description can tell us about learning and cognition. Professor Quan Wen and a senior member of his group introduced me to the covariance spectrum. It summarizes how the variance of population activity is distributed across its principal directions. To compare a model with recordings, I first needed to understand how finite sampling affects the estimated spectrum. I studied how Hu and Sompolinsky relate sampled and population spectra using free probability. The mathematics textbooks I referred to covered more than I needed for the calculation, so I used AI tools to study the relevant concepts and then followed the paper’s derivation to the end. This helped me see how the relation between the spectra depends on the sampling scheme and model assumptions. Beyond estimating the spectrum, I wanted to understand its relation to task performance. Knowing how much activity varies along each principal direction does not tell us whether it carries the information a task requires. Discussions with the senior group member helped me see three questions that fit together. Given the demands of a task, which information should the network devote more of its limited resources to representing? Can the network’s connections produce such a representation? If a downstream system can read out only part of the activity, can it still use that representation to perform the task? I want to bring task demands, network representation, and limited readout into one theoretical model and study how they work together to shape task performance.", "sourceChinese": "我目前的本科科研项目研究怎样描述递归神经网络的集体活动，以及这种描述能帮助我们理解学习与认知的哪些方面。温老师和课题组的一位师兄带我从协方差谱入手。它概括了群体活动的方差在各主方向上怎样分布。为了比较模型和记录，我先需要弄清，有限取样会怎样影响估计得到的谱。我学习了 Hu 和 Sompolinsky 如何用自由概率联系取样谱与总体谱。我查阅的数学教材涵盖了超出这项计算所需的内容，因此我借助 AI 学习相关概念，随后跟着论文推完了相关推导。这让我看见，两个谱的关系怎样依赖取样方式和模型假设。除了估计谱，我也想理解它与任务表现的关系。知道活动沿各主方向的变异大小，并不能告诉我们这些活动是否承载了任务所需的信息。与师兄讨论后，我看到三个相互联系的问题。根据任务需求，网络应该把更多有限资源用于表征哪些信息？网络的连接能否产生这样的表征？如果下游系统只能读取部分活动，它还能利用这种表征完成任务吗？我想把任务需求、网络表征和有限读取放进一个理论模型，研究它们怎样共同影响任务表现。", "blocks": [{"id": "p6-project", "title": "项目与协方差谱", "kind": "experience", "status": "当前项目", "summary": "本科项目问：怎样描述递归网络的集体活动，这种描述能告诉我们学习与认知的什么；温老师与师兄引导我从协方差谱入手。", "sourceStart": 0, "sourceEnd": 380, "sourceText": "My current undergraduate research project asks how to describe the collective activity of a recurrent neural network and what that description can tell us about learning and cognition. Professor Quan Wen and a senior member of his group introduced me to the covariance spectrum. It summarizes how the variance of population activity is distributed across its principal directions.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "The project and the covariance spectrum", "status_en": "Current project", "summary_en": "The undergraduate project asks how to describe the collective activity of a recurrent network and what that tells us about learning and cognition; Professor Wen and a senior group member pointed to the covariance spectrum."}, {"id": "p6-sampling", "title": "有限取样：学习与跟推", "kind": "learn", "status": "已开展的学习", "summary": "为比较模型与记录，先弄清有限取样怎样影响估计谱：学习 Hu–Sompolinsky 用自由概率联系取样谱与总体谱，借 AI 学概念后跟推完推导，看到谱关系依赖取样方式与模型假设。", "sourceStart": 381, "sourceEnd": 893, "sourceText": "To compare a model with recordings, I first needed to understand how finite sampling affects the estimated spectrum. I studied how Hu and Sompolinsky relate sampled and population spectra using free probability. The mathematics textbooks I referred to covered more than I needed for the calculation, so I used AI tools to study the relevant concepts and then followed the paper’s derivation to the end. This helped me see how the relation between the spectra depends on the sampling scheme and model assumptions.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "Finite sampling: study and derivation", "status_en": "Study carried out", "summary_en": "To compare models with recordings, first understand how finite sampling affects the estimated spectrum: studied how Hu and Sompolinsky relate sampled and population spectra through free probability, learned the concepts with AI help, followed the derivation to the end, and saw how the relation depends on the sampling scheme and model assumptions."}, {"id": "p6-function", "title": "从描述转向任务信息", "kind": "question", "status": "本人认可的区分", "summary": "除了估计谱，还想理解它与任务表现的关系：方差沿各方向有多大，并不说明活动是否承载任务所需的信息。", "sourceStart": 894, "sourceEnd": 1115, "sourceText": "Beyond estimating the spectrum, I wanted to understand its relation to task performance. Knowing how much activity varies along each principal direction does not tell us whether it carries the information a task requires.", "cell": {"r": 1, "c": 1, "cs": 1, "rs": 1}, "title_en": "From description to task information", "status_en": "A distinction the author endorses", "summary_en": "Beyond estimating the spectrum: how much activity varies along each direction does not tell us whether it carries the information a task needs."}, {"id": "p6-triangle", "title": "三角框架与整合愿望", "kind": "plan", "status": "师兄指导下的问题与计划", "summary": "与师兄讨论后看到三个相互联系的问题——任务需求、网络表征、有限读取；想把三者放进一个理论模型，研究它们怎样共同影响任务表现。", "sourceStart": 1116, "sourceEnd": 1668, "sourceText": "Discussions with the senior group member helped me see three questions that fit together. Given the demands of a task, which information should the network devote more of its limited resources to representing? Can the network’s connections produce such a representation? If a downstream system can read out only part of the activity, can it still use that representation to perform the task? I want to bring task demands, network representation, and limited readout into one theoretical model and study how they work together to shape task performance.", "cell": {"r": 1, "c": 0, "cs": 1, "rs": 1}, "title_en": "A three-part framework and an integrative aim", "status_en": "Questions and plans under guidance", "summary_en": "Discussions with a senior group member brought out three linked questions — task demands, network representation, limited readout — and the aim of studying them together in one theoretical model."}], "title_en": "Current research: spectra and tasks", "role_en": "Work studied so far and an integrative aim", "gist_en": "From covariance spectra and sampling to task information", "structure_en": "The first half is the study of covariance spectra and finite sampling, including following a derivation to the end; the second half turns to task information and, with guidance from a senior group member, to three connected questions. The two kinds of “limited” are different problems.", "boundary_en": "The three-part framework in the second half is a set of guided questions and an integrative aim. It is not a completed independent theoretical result, and it is not a mathematical consequence of the sampling correction.", "groups": [{"id": "p6-g1", "title": "已开展：描述与取样", "blocks": ["p6-project", "p6-sampling"], "form": "plate", "title_en": "Done so far: description and sampling"}, {"id": "p6-g2", "title": "转向：功能问题与想做的框架", "blocks": ["p6-function", "p6-triangle"], "form": "plate", "title_en": "The turn: function and the intended framework"}], "internalEdges": [{"id": "p6-i1", "from": "p6-project", "to": "p6-sampling", "type": "task", "status": "text", "label": "比较模型与记录，先要处理取样", "reason": "“To compare a model with recordings, I first needed to understand how finite sampling affects the estimated spectrum.”", "label_en": "Comparing with recordings needs sampling first", "reason_en": "“To compare a model with recordings, I first needed to understand how finite sampling affects the estimated spectrum.”"}, {"id": "p6-i2", "from": "p6-sampling", "to": "p6-function", "type": "transition", "status": "text", "label": "转向：“Beyond estimating the spectrum”", "reason": "原文以 “Beyond estimating the spectrum” 转到互补的功能问题。", "label_en": "The turn: “Beyond estimating the spectrum”", "reason_en": "The text turns with “Beyond estimating the spectrum” to a complementary question about function."}, {"id": "p6-i3", "from": "p6-function", "to": "p6-triangle", "type": "elaboration", "status": "text", "label": "展开为三个相互联系的问题", "reason": "三角框架回答“谱之外，什么决定任务表现”。", "label_en": "Unfolds into three linked questions", "reason_en": "The framework addresses what, beyond the spectrum, shapes task performance."}, {"id": "p6-i4", "from": "p6-sampling", "to": "p6-triangle", "type": "distinction", "status": "editorial", "label": "有限取样 ≠ 有限读取", "reason": "两处都有“有限”：前者是记录只取到部分神经元对估计谱的影响，后者是下游只读到部分活动能否完成任务。两类限制不同，不能把后者当作前者的推论。", "label_en": "Finite sampling ≠ limited readout", "reason_en": "Both involve a limit. One is recordings that cover only some neurons, which affects the estimated spectrum; the other is a downstream system that reads only part of the activity. They are different constraints, and the second is not a consequence of the first."}]}, {"id": "p7", "title": "研究方式与更广兴趣", "role": "未来研究与训练期待", "category": "future", "gist": "比较模型与 AI 时代的物理图像；记忆、泛化与语言", "structure": "模型比较与 AI 思考属于研究方式；学习记忆、语言属于更广问题，两者保持探索中的联系；末句收束为对 PhD 训练的期待。", "boundary": "AI 兴趣由获知 Lyapunov 谱突破触发，不能写成“因为用 AI 学过推导，所以产生 AI4Math 兴趣”，因此 P6 的 AI 学习与本段不连线。“formal proofs”“reformulating…”按 v26 原文展示，专业措辞审读另行提出。记忆、泛化与语言是探索中的较广兴趣，无需由毕设推出。", "number": 7, "sourceText": "Putting these pieces together would give me a starting point for the kind of work I most enjoy: studying the same phenomenon with different models to see which explanations hold across models and which depend on particular assumptions. News of the AI-assisted breakthrough on random RNN Lyapunov spectra suggested new possibilities for theoretical research. If AI makes it easier to work through formal proofs, we could explore a wider range of models and assumptions in a continuous workflow. In my view, researchers should then focus on reformulating analytical or numerical results in terms of clear physical pictures and a coherent story. More broadly, I want to understand how the brain learns efficiently. How does experience strengthen memory, and how does learning generalize to new situations? Beyond learning and memory, I want to understand the neural basis of language. How does language emerge from neural activity, and what role does it play in thought? Through PhD training, I hope to learn how to formulate interesting questions about language and cognition, then develop the methods to answer them.", "sourceChinese": "把这三部分连起来，可以成为我最喜欢的一种研究方式的起点：用不同的模型研究同一个现象，判断哪些解释在不同模型中都成立，哪些只依赖特定的假设。AI 协助取得随机 RNN Lyapunov 谱突破的消息，让我看到了理论研究的新可能。如果 AI 能让形式证明更容易推进，我们就可能在连贯的研究过程中探索更多模型与假设。在我看来，研究者应进一步着重于重新组织解析或数值结果的表述，以清楚的物理图像和连贯的物理故事呈现它们。在更广的层面上，我想理解大脑怎样高效学习。经验如何巩固记忆，学习又如何泛化到新的情境？除了学习与记忆，我也想理解语言的神经基础。语言如何从神经活动中涌现，又在思维中起到什么作用？我希望通过博士训练，学会提出关于语言与认知的有趣问题，进而发展回答这些问题的方法。", "blocks": [{"id": "p7-comparison", "title": "比较模型的研究方式", "kind": "interest", "status": "研究取向", "summary": "把前面几部分合起来，是我最喜欢的研究方式的起点：用不同模型研究同一现象，看哪些解释跨模型成立、哪些依赖特定假设。", "sourceStart": 0, "sourceEnd": 235, "sourceText": "Putting these pieces together would give me a starting point for the kind of work I most enjoy: studying the same phenomenon with different models to see which explanations hold across models and which depend on particular assumptions.", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "Comparing models", "status_en": "Research orientation", "summary_en": "Putting the pieces together leads to the favorite kind of work: studying one phenomenon with different models to see which explanations hold across models and which depend on particular assumptions."}, {"id": "p7-ai", "title": "AI 与物理图像", "kind": "interest", "status": "本人已补充的思考", "summary": "AI 协助的随机 RNN Lyapunov 谱突破提示新可能：若 AI 让形式证明更易推进，可在连贯流程中探索更多模型与假设；研究者应着重以清楚的物理图像和连贯的故事重新组织结果。", "sourceStart": 236, "sourceEnd": 642, "sourceText": "News of the AI-assisted breakthrough on random RNN Lyapunov spectra suggested new possibilities for theoretical research. If AI makes it easier to work through formal proofs, we could explore a wider range of models and assumptions in a continuous workflow. In my view, researchers should then focus on reformulating analytical or numerical results in terms of clear physical pictures and a coherent story.", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "AI and physical pictures", "status_en": "The author's added thought", "summary_en": "News of the AI-assisted result on random RNN Lyapunov spectra suggests that, if AI eases formal proofs, a wider range of models and assumptions can be explored; researchers should then focus on recasting results as clear physical pictures and a coherent story."}, {"id": "p7-learning", "title": "高效学习、记忆与泛化", "kind": "question", "status": "探索中的较广兴趣", "summary": "更广地，想理解大脑怎样高效学习：经验怎样巩固记忆，学习又怎样泛化到新情境？", "sourceStart": 643, "sourceEnd": 802, "sourceText": "More broadly, I want to understand how the brain learns efficiently. How does experience strengthen memory, and how does learning generalize to new situations?", "cell": {"r": 1, "c": 0, "cs": 1, "rs": 1}, "title_en": "Efficient learning, memory and generalization", "status_en": "Broader interest, still exploring", "summary_en": "More broadly: how does the brain learn efficiently, how does experience strengthen memory, and how does learning generalize to new situations?"}, {"id": "p7-language", "title": "语言的神经基础", "kind": "question", "status": "探索中的兴趣", "summary": "也想理解语言的神经基础：语言怎样从神经活动中涌现，又在思维中起什么作用？", "sourceStart": 803, "sourceEnd": 967, "sourceText": "Beyond learning and memory, I want to understand the neural basis of language. How does language emerge from neural activity, and what role does it play in thought?", "cell": {"r": 1, "c": 1, "cs": 1, "rs": 1}, "title_en": "The neural basis of language", "status_en": "Interest, still exploring", "summary_en": "How does language emerge from neural activity, and what role does it play in thought?"}, {"id": "p7-training", "title": "对 PhD 训练的期待", "kind": "plan", "status": "训练愿望", "summary": "希望通过 PhD 训练，学会提出关于语言与认知的有趣问题，并发展回答它们的方法。", "sourceStart": 968, "sourceEnd": 1115, "sourceText": "Through PhD training, I hope to learn how to formulate interesting questions about language and cognition, then develop the methods to answer them.", "cell": {"r": 2, "c": 0, "cs": 2, "rs": 1}, "title_en": "Hopes for PhD training", "status_en": "Training aim", "summary_en": "To learn, through PhD training, how to pose interesting questions about language and cognition and how to develop methods to answer them."}], "title_en": "Ways of doing research and broader interests", "role_en": "Future research and hopes for training", "gist_en": "Comparing models, physical pictures, memory and language", "structure_en": "Comparing models and the thoughts on AI concern how to do research; learning, memory and language are broader questions, linked to the first group in an exploratory way; the last sentence turns to hopes for PhD training.", "boundary_en": "The interest in AI was triggered by news of the Lyapunov-spectrum breakthrough. It must not be written as “having used AI to learn a derivation led to an interest in AI for mathematics”, so the AI-assisted learning in P6 is not linked to this paragraph. “formal proofs” and “reformulating …” are shown exactly as in v26; any review of that technical wording is a separate matter. Memory, generalization and language are broader interests still being explored and need not follow from the thesis.", "groups": [{"id": "p7-g1", "title": "怎样研究", "blocks": ["p7-comparison", "p7-ai"], "form": "plate", "title_en": "How to do research"}, {"id": "p7-g2", "title": "更广的问题 · 并列", "blocks": ["p7-learning", "p7-language"], "form": "parallel", "title_en": "Broader questions, side by side"}], "internalEdges": [{"id": "p7-i1", "from": "p7-ai", "to": "p7-comparison", "type": "method", "status": "text", "label": "AI 或可扩大可比较的模型与假设", "reason": "“we could explore a wider range of models and assumptions” 与上一句“different models… particular assumptions”用词对应。", "label_en": "AI may widen what can be compared", "reason_en": "“we could explore a wider range of models and assumptions” echoes “different models… particular assumptions” in the previous sentence."}, {"id": "p7-i2", "from": "p7-comparison", "to": "p7-learning", "type": "scope", "status": "text", "label": "“More broadly”：从研究方式转到更广问题", "reason": "原文以 “More broadly” 换到问题层面，不是方法的推论。", "label_en": "“More broadly”: from method to wider questions", "reason_en": "The text moves with “More broadly” to the level of questions; this is not a consequence of the method."}, {"id": "p7-i3", "from": "p7-learning", "to": "p7-language", "type": "parallel", "status": "text", "label": "“Beyond learning and memory”：并列的另一类问题", "reason": "“Beyond learning and memory” 表示并列追加。", "label_en": "“Beyond learning and memory”", "reason_en": "“Beyond learning and memory” adds a parallel question."}, {"id": "p7-i4", "from": "p7-language", "to": "p7-training", "type": "purpose", "status": "text", "label": "问题指向训练期待", "reason": "末句 “questions about language and cognition” 承接语言问题，转为对训练的期待。", "label_en": "The questions point to hopes for training", "reason_en": "The last sentence, “questions about language and cognition”, picks up the language question and turns it into a hope for training."}]}, {"id": "p8", "title": "项目与导师匹配", "role": "待定制模板", "category": "future", "gist": "学校、项目与导师匹配（模板，待逐校填写）", "structure": "具体问题与项目资源相接，再以导师研究和训练机会展开。所有方括号内容仍待核实填写。", "boundary": "仍是模板：学校、教授与机会尚未填写，不能把占位内容当作已确定的匹配。", "number": 8, "sourceText": "At [University], the [PhD program] would let me pursue [specific research question from this statement] through [specific program resource or research opportunity]. I am interested in Professor [Name]’s work on [specific result, method, or system], which could help me investigate [concrete question that follows from that work]. Professor [Name]’s research on [second topic] offers a complementary way to study [related question]. [If applicable: connect the two interests through one verified training or collaboration opportunity.]", "sourceChinese": "在[学校]，[博士项目]的[具体资源或研究机会]能帮助我继续研究[与前文相接的具体问题]。[姓名]教授关于[具体结果、方法或研究对象]的工作让我感兴趣，因为它可以帮助我研究[由这项工作引出的具体问题]。[姓名]教授对[另一研究主题]的研究，则为理解[相关问题]提供了另一种途径。[如果适用，用一项已核实的训练或合作机会把两处兴趣连起来。]", "blocks": [{"id": "p8-program", "title": "问题与项目资源", "kind": "template", "status": "待定制", "summary": "模板：在[学校]的[博士项目]，借[具体资源或研究机会]研究[与前文相接的具体问题]。", "sourceStart": 0, "sourceEnd": 164, "sourceText": "At [University], the [PhD program] would let me pursue [specific research question from this statement] through [specific program resource or research opportunity].", "cell": {"r": 0, "c": 0, "cs": 1, "rs": 1}, "title_en": "Question and program resources", "status_en": "To be tailored", "summary_en": "Template: at [University], the [PhD program] would support [a question from this statement] through [a specific resource or opportunity]."}, {"id": "p8-faculty", "title": "导师与训练机会", "kind": "template", "status": "待定制", "summary": "模板：[教授]关于[具体工作]的研究可帮助我追问[具体问题]；另一位教授提供互补视角；如适用，以一项已核实的训练或合作机会连接两者。", "sourceStart": 165, "sourceEnd": 534, "sourceText": "I am interested in Professor [Name]’s work on [specific result, method, or system], which could help me investigate [concrete question that follows from that work]. Professor [Name]’s research on [second topic] offers a complementary way to study [related question]. [If applicable: connect the two interests through one verified training or collaboration opportunity.]", "cell": {"r": 0, "c": 1, "cs": 1, "rs": 1}, "title_en": "Faculty and training opportunities", "status_en": "To be tailored", "summary_en": "Template: Professor [Name]'s work on [a topic] could help investigate [a question]; a second professor offers a complementary angle; if applicable, one verified training or collaboration opportunity links the two."}], "title_en": "Program and faculty fit", "role_en": "Template to be tailored", "gist_en": "Program and faculty fit — a template still to be filled in", "structure_en": "A specific question is matched to program resources, then developed through faculty research and training opportunities. Everything in brackets is still to be verified and filled in.", "boundary_en": "This is still a template: the school, faculty and opportunities are not filled in, and the placeholders must not be read as a settled match.", "groups": [], "internalEdges": [{"id": "p8-i1", "from": "p8-program", "to": "p8-faculty", "type": "elaboration", "status": "template", "label": "以具体导师研究展开匹配", "reason": "模板结构：先资源，后导师。", "label_en": "Developed through faculty research", "reason_en": "Template structure: resources first, then faculty."}]}], "crossEdges": [{"id": "x1", "from": "p1-goal", "to": "p2-question", "type": "elaboration", "status": "text", "label": "总问题收窄为具体问题", "reason": "P1 问集体活动怎样产生学习与认知；P2 把它具体化为“连接 → 集体活动 → 表征与行为”，两处都写 collective activity。", "caution": "", "review": "复核新增", "label_en": "The central question, narrowed", "reason_en": "P1 asks how collective activity gives rise to learning and cognition; P2 makes this specific as connectivity → collective activity → representation and behavior. Both use “collective activity”.", "caution_en": "", "review_en": "Added in this review"}, {"id": "x2", "from": "p1-physics", "to": "p2-math", "type": "support", "status": "text", "label": "物理训练的具体内容", "reason": "P1 说理论物理带来的思路；P2 以 “Several courses from my physics training” 展开训练内容。", "caution": "", "review": "保留（原 e1）", "label_en": "What the physics training contained", "reason_en": "P1 speaks of the approach physics taught; P2 opens with “Several courses from my physics training”.", "caution_en": "", "review_en": "Kept (formerly e1)"}, {"id": "x3", "from": "p1-goal", "to": "p6-project", "type": "echo", "status": "text", "label": "同一总问题落到当前项目", "reason": "P6 项目问“怎样描述递归网络的集体活动……能告诉我们学习与认知的什么”，与 P1 开篇几乎同词。", "caution": "", "review": "复核新增", "label_en": "The same question in the current project", "reason_en": "The P6 project asks how to describe the collective activity of a recurrent network and what that tells us about learning and cognition — almost the wording of P1's opening.", "caution_en": "", "review_en": "Added in this review"}, {"id": "x4", "from": "p1-phd", "to": "p7-training", "type": "echo", "status": "text", "label": "PhD 目标首尾呼应", "reason": "P1 末句与 P7 末句都写 PhD：前者是申请目标，后者是对训练本身的期待。", "caution": "", "review": "复核新增（由 P1、P7 末句拆块而来）", "label_en": "The PhD goal at both ends", "reason_en": "The last sentences of P1 and P7 both mention the PhD: first as the goal of the application, then as hopes for the training itself.", "caution_en": "", "review_en": "Added in this review, after the last sentences of P1 and P7 became blocks of their own"}, {"id": "x5", "from": "p2-ensemble", "to": "p5-energy", "type": "echo", "status": "editorial", "label": "统计物理思想与能量函数", "reason": "能量函数分析属统计物理传统，与系综思想主题相近；原文没有直接把两者相连。", "caution": "只是编辑性呼应，不代表作者在文中这样论证。", "review": "保留（原 e2）", "label_en": "Statistical-physics thinking and energy functions", "reason_en": "Energy-function analysis belongs to the statistical-physics tradition and is thematically close to ensemble thinking; the text does not connect the two directly.", "caution_en": "An editorial echo only; it does not mean the essay argues this.", "review_en": "Kept (formerly e2)"}, {"id": "x6", "from": "p2-math", "to": "p6-sampling", "type": "support", "status": "editorial", "label": "数学工具用于当前学习", "reason": "P6 借教材与自由概率理解取样谱，与 P2 的线性代数、概率统计属同一类准备；原文没有直接点名。", "caution": "", "review": "保留，状态由“现稿联系”改为“编辑性”", "label_en": "Mathematical tools in the current study", "reason_en": "P6 relies on textbooks and free probability to understand sampled spectra, the same kind of preparation as the linear algebra, probability and statistics in P2; the text does not say so directly.", "caution_en": "", "review_en": "Kept; status changed from “link in the text” to “editorial”"}, {"id": "x7", "from": "p2-replica", "to": "p6-project", "type": "echo", "status": "text", "label": "同一对象：递归网络的协方差谱", "reason": "P2 末句写 replica 被用于计算结构化递归网络的 covariance spectrum；P6 项目正是从 covariance spectrum 入手。", "caution": "Wen 组的 replica 材料与 Hu–Sompolinsky 自由概率论文是两份材料。此线只表示研究对象相同，不表示 P6 用了 replica 方法。replica 材料的来源已在项目中核对。", "review": "复核新增", "label_en": "Same object: covariance spectra of recurrent networks", "reason_en": "P2's last sentence says the replica trick was used to compute the covariance spectrum of a structured recurrent network; the P6 project starts from the covariance spectrum.", "caution_en": "The replica material from Wen's group and the Hu–Sompolinsky free-probability paper are two different sources. This link only marks the same object of study; it does not mean P6 used the replica method. The source of the replica material has been checked within the project.", "review_en": "Added in this review"}, {"id": "x8", "from": "p2-question", "to": "p6-triangle", "type": "echo", "status": "text", "label": "连接–表征–任务问题再现", "reason": "P2 问连接怎样塑造活动、活动怎样支持表征与行为；P6 三角框架问连接能否产生所需表征、有限读取能否完成任务。用词直接对应。", "caution": "三角框架来自与师兄的讨论；此线只标出用词呼应，不表示 P2 的问题推出了 P6 的框架。", "review": "复核新增", "label_en": "Connections, representation and tasks, again", "reason_en": "P2 asks how connectivity shapes activity and how activity supports representation and behavior; the P6 framework asks whether connections can produce the needed representation and whether limited readout suffices for the task. The wording corresponds directly.", "caution_en": "The framework came from discussions with a senior group member; this link marks the echo in wording, not that P2's question produced P6's framework.", "review_en": "Added in this review"}, {"id": "x9", "from": "p3-seminars", "to": "p4-model", "type": "development", "status": "text", "label": "生物物理兴趣与随后的实践", "reason": "P3 末句 “That possibility drew me to biophysics”，P4 随即叙述侯组的生物物理模型工作。", "caution": "原文只是相邻承接，没有写 seminar 直接导致加入侯组。", "review": "保留（原 e4）", "label_en": "An interest in biophysics, then practice", "reason_en": "P3 ends with “That possibility drew me to biophysics”, and P4 turns straight to biophysical modeling in Hou's group.", "caution_en": "The text only places these side by side; it does not say the seminars led directly to joining Hou's group.", "review_en": "Kept (formerly e4)"}, {"id": "x10", "from": "p3-skills", "to": "p6-sampling", "type": "echo", "status": "editorial", "label": "借已有工作进入理论", "reason": "P3 借现有代码复现计算以理解抽象理论；P6 借教材与 AI 学概念后跟推论文推导。学习方式相近，原文未相互指涉。", "caution": "不是因果：不能写成 P3 的能力导致 P6 的学习。", "review": "保留（原 e12）", "label_en": "Entering theory through existing work", "reason_en": "In P3, reproducing calculations with existing code is a way into abstract theory; in P6, textbooks and AI help lead to following a paper's derivation. The ways of learning are similar, but neither passage refers to the other.", "caution_en": "Not causal: the skill in P3 must not be written as the cause of the study in P6.", "review_en": "Kept (formerly e12)"}, {"id": "x11", "from": "p4-gains", "to": "p5-formalism", "type": "contrast", "status": "text", "label": "模拟为主 ↔ 解析工作", "reason": "P4 末句 “simulation-based research”；P5 写 “After working mainly with simulations in Professor Hou’s group… analytical work… just as important”。", "caution": "", "review": "起点由 p4-actions 改为 p4-gains，“以模拟为主”在这一块", "label_en": "Simulation-based ↔ analytical work", "reason_en": "P4 ends with “simulation-based research”; P5 says “After working mainly with simulations in Professor Hou’s group… analytical work… just as important”.", "caution_en": "", "review_en": "Start moved from p4-actions to p4-gains, where “simulation-based” appears"}, {"id": "x12", "from": "p5-formalism", "to": "p7-ai", "type": "echo", "status": "endorsed", "label": "推导的清晰 ↔ 清楚的物理图像", "reason": "P5 “clarity of the derivations” 与 P7 “clear physical pictures and a coherent story” 是同一种趣味。本人认可这一联系。", "caution": "", "review": "起点由 p5-energy 改为 p5-formalism，“推导清晰”在这一块", "label_en": "Clear derivations ↔ clear physical pictures", "reason_en": "P5's “clarity of the derivations” and P7's “clear physical pictures and a coherent story” express the same taste. The author has endorsed this link.", "caution_en": "", "review_en": "Start moved from p5-energy to p5-formalism, where the clarity of derivations appears"}, {"id": "x13", "from": "p5-phenomena", "to": "p7-learning", "type": "elaboration", "status": "text", "label": "学习、记忆兴趣的展开", "reason": "P5 列 learning, memory；P7 追问高效学习、记忆巩固与泛化。", "caution": "P5 列出的 attention 没有在后文展开。", "review": "保留（原 e7）", "label_en": "Learning and memory, developed", "reason_en": "P5 lists learning and memory; P7 asks about efficient learning, memory consolidation and generalization.", "caution_en": "Attention, also listed in P5, is not developed later.", "review_en": "Kept (formerly e7)"}, {"id": "x14", "from": "p5-phenomena", "to": "p7-language", "type": "elaboration", "status": "text", "label": "语言兴趣的展开", "reason": "P5 列 language；P7 追问语言的神经基础与它在思维中的作用。", "caution": "", "review": "保留（原 e8）", "label_en": "Language, developed", "reason_en": "P5 lists language; P7 asks about the neural basis of language and its role in thought.", "caution_en": "", "review_en": "Kept (formerly e8)"}, {"id": "x15", "from": "p6-triangle", "to": "p7-comparison", "type": "development", "status": "text", "label": "“these pieces”合起来 → 比较模型", "reason": "P7 首句 “Putting these pieces together” 承接 P6 的三个问题与整合模型。", "caution": "理由仍较宽；不能补入“一次只改一个因素”等未确认的研究设计。", "review": "保留（原 e9）", "label_en": "“These pieces” together → comparing models", "reason_en": "P7 opens with “Putting these pieces together”, picking up P6's three questions and the integrated model.", "caution_en": "The rationale is still broad; unconfirmed research designs such as “changing one factor at a time” must not be added.", "review_en": "Kept (formerly e9)"}, {"id": "x16", "from": "p7-training", "to": "p8-program", "type": "purpose", "status": "template", "label": "训练期待 → 项目资源", "reason": "P8 模板要求选一个与前文相接的研究问题与项目资源；学校与导师未填，故为待定制。", "caution": "", "review": "起点由 p7-language 改为拆出的 p7-training", "label_en": "Hopes for training → program resources", "reason_en": "The P8 template asks for a research question and a program resource that follow from the statement; the school and faculty are not filled in, so this link is still to be tailored.", "caution_en": "", "review_en": "Start moved from p7-language to the new p7-training block"}], "notes": [{"id": "n1", "title": "理论与丰富现象", "status": "待阅读酝酿", "text": "比较不同模型，怎样回应理论与生命现象之间的关系？需要最近阅读论文继续酝酿，不能直接补成已经形成的学术理念。", "userWords": "这个有道理，我值得思考，但是目前我的摄入不够去表达清楚这个点，需要最近阅读论文等来酝酿（计划中）", "reading": "Ongoing-Breakthrough 中 Lyapunov 谱论文的物理解释、模型假设和讨论；AI4Math 阅读材料。", "targets": ["p1-theory", "p7-comparison", "p7-ai"], "addedTargets": ["p7-comparison"], "review": "批注以“比较不同模型”开头，故补上 p7-comparison 靶点。", "title_en": "Theory and the richness of phenomena", "status_en": "To develop through reading", "text_en": "How might comparing different models speak to the relation between theory and living phenomena? This needs further reading of recent papers; it must not be filled in as an already formed academic view.", "userWords_en": "This makes sense and is worth thinking about, but I haven't taken in enough yet to express this point clearly; I need to read recent papers to let it develop (planned).", "reading_en": "The physical interpretation, model assumptions and discussion of the Lyapunov-spectrum paper in Ongoing-Breakthrough; the AI4Math reading notes.", "review_en": "The note opens with “comparing different models”, so p7-comparison was added as a target."}, {"id": "n2", "title": "跟推后的具体认识", "status": "待阅读酝酿", "text": "从有限取样推导中提炼一个本人真正理解、能够说清楚的认识。当前稿已写学习路径，不能为了充实而补造新的数学结果。", "userWords": "还要酝酿", "reading": "Hu–Sompolinsky 的取样谱关系与自己跟推的记录。", "targets": ["p6-sampling"], "addedTargets": [], "review": "靶点保留。", "title_en": "A concrete insight after the derivation", "status_en": "To develop through reading", "text_en": "Distill from the finite-sampling derivation one insight the author truly understands and can state clearly. The current draft describes the learning path; no new mathematical result should be invented to fill it out.", "userWords_en": "Still needs time to develop.", "reading_en": "The Hu–Sompolinsky relation between sampled and population spectra, and the author's own notes from following the derivation.", "review_en": "Target kept."}, {"id": "n3", "title": "自己的下一步问题", "status": "待形成问题", "text": "如何从理解已有工作走到自己的追问？当前暂不好解决。保留任务、表征、读取的整体兴趣，尚未确定固定的下一步计算设计。", "userWords": "这问题目前还不好解决", "reading": "本人已有神经研究问题、毕设三角及后续阅读。", "targets": ["p6-triangle", "p7-comparison"], "addedTargets": [], "review": "靶点保留。", "title_en": "The author's own next question", "status_en": "Question still forming", "text_en": "How to move from understanding existing work to a question of one's own? This is hard to resolve for now. The overall interest in task, representation and readout stays; no fixed next computational design has been settled.", "userWords_en": "This question isn't easy to resolve at the moment.", "reading_en": "The author's existing neural research questions, the thesis triangle, and further reading.", "review_en": "Targets kept."}, {"id": "n4", "title": "理论与记录、行为证据", "status": "待阅读酝酿", "text": "什么观测或行为证据能够帮助判断一种解释，或区分不同解释？本人认为这是后期酝酿中非常重要的问题。", "userWords": "后期酝酿中值得思考这个问题，非常重要的", "reading": "理论预测怎样与有限神经记录及任务表现相接。", "targets": ["p6-function", "p7-comparison", "p8-program"], "addedTargets": ["p7-comparison"], "review": "“区分不同解释”与 p7-comparison 的 “which explanations hold across models” 直接相关，故补上靶点。", "title_en": "Theory, recordings and behavioral evidence", "status_en": "To develop through reading", "text_en": "What observations or behavioral evidence could help judge one explanation, or tell different explanations apart? The author considers this a very important question for later reflection.", "userWords_en": "Worth thinking about later on — it's a very important question.", "reading_en": "How theoretical predictions connect with limited neural recordings and task performance.", "review_en": "“Telling different explanations apart” relates directly to p7-comparison's “which explanations hold across models”, so p7-comparison was added as a target."}], "pairLabels": {"p1|p2": "问题收窄 · 训练展开", "p1|p6": "同一总问题", "p1|p7": "PhD 首尾呼应", "p2|p5": "统计物理思想", "p2|p6": "谱、工具与问题的延续", "p3|p4": "生物物理兴趣 → 实践", "p3|p6": "复现与跟推", "p4|p5": "模拟 ↔ 解析", "p5|p7": "兴趣的展开", "p6|p7": "合起来 → 比较模型", "p7|p8": "训练 → 项目"}, "pairLabels_en": {"p1|p2": "Question narrowed, training unpacked", "p1|p6": "Same central question", "p1|p7": "The PhD at both ends", "p2|p5": "Statistical-physics thinking", "p2|p6": "Spectra, tools and questions carried on", "p3|p4": "Biophysics: interest → practice", "p3|p6": "Reproducing and following", "p4|p5": "Simulation ↔ analysis", "p5|p7": "Interests developed", "p6|p7": "Pieces together → comparison", "p7|p8": "Training → program"}, "notLinked": ["P6 的“借 AI 学概念”与 P7 的 AI 兴趣：本人明确兴趣由 Lyapunov 谱突破消息触发，不由 AI 学习经历推出。", "P3 英语沟通 → seminar，P3 计算 → 兴趣转向：两条支线并列，不画因果。", "P2 问题 → P2 replica：replica 是技术迁移的例子，不是该问题的答案。", "P1 理论与丰富现象 ↔ P7 AI：原“待酝酿”边已由批注 n1 表达，不再重复画线。"], "notLinked_en": ["P6's “used AI tools to study the relevant concepts” and P7's interest in AI: the author states that the interest was triggered by news of the Lyapunov-spectrum result, not by the experience of learning with AI.", "P3 English communication → seminars, and P3 computation → change of interest: the two strands are parallel, and no causation is drawn.", "P2 question → P2 replica trick: the replica trick is an example of a transferred technique, not an answer to the question.", "P1 theory and phenomena ↔ P7 AI: the former “still developing” link is now carried by note n1 rather than by a separate line."]}</script>
+<script>
+(()=>{
+'use strict';
+const D=JSON.parse(document.getElementById('sop-data').textContent);
+const V=document.getElementById('viewport'),W=document.getElementById('world'),SVG=document.getElementById('links');
+const FR=document.getElementById('frames'),ND=document.getElementById('nodes'),LB=document.getElementById('labels');
+const NS='http://www.w3.org/2000/svg';
+const CAT={position:['#2f6f8f','#eef5f8'],experience:['#2c7a64','#eef6f2'],theory:['#7650a0','#f4f0f8'],future:['#a8692a','#fbf4ea']};
+let LANG=/zh/i.test(location.hash)?'zh':'en';
+const KIND={question:['问题','Question'],learn:['学习','Study'],experience:['实践经历','Practice'],object:['研究对象','Object of study'],gain:['收获','Gain'],interest:['立场与兴趣','Position / interest'],plan:['计划与愿望','Plan / aim'],template:['待定制','Template']};
+const TYPE={support:['支撑','前者为后者提供条件或材料',1,'Supports','The first provides conditions or material for the second'],
+ development:['承接','后者顺着前者的话题继续发展；不等于因果',1,'Leads on','The second continues the topic of the first; this is not causation'],
+ elaboration:['展开','后者把前者具体化',1,'Unfolds','The second makes the first specific'],
+ method:['方法','前者提供接近后者的方式',1,'Method','The first offers a way to approach the second'],
+ task:['任务','前者引出需要先处理的任务',1,'Task','The first raises a task that has to be handled first'],
+ action:['行动','在前者的对象上开展工作',1,'Action','Work carried out on the object of the first'],
+ result:['收获','后者是前者带来的结果或能力',1,'Gain','The second is a result or skill that comes from the first'],
+ purpose:['目的','前者指向后者的目标',1,'Purpose','The first points toward the goal in the second'],
+ scope:['范围转换','从一个层面转到更广的层面，不是推论',1,'Shift of scope','A move from one level to a broader one, not an inference'],
+ example:['例证','后者是前者的具体例子',1,'Example','The second is a concrete example of the first'],
+ transition:['转向','转到互补的另一个问题',1,'Turn','A turn to a complementary question'],
+ parallel:['并列','两者并列，无先后与因果',0,'Parallel','Side by side, with no order or causation'],
+ echo:['呼应','主题或用词相互呼应，无方向，不表示因果',0,'Echo','Themes or wording echo each other; undirected and not causal'],
+ contrast:['对照','两种经历或取向的对照',0,'Contrast','Two experiences or orientations set against each other'],
+ distinction:['区分','两者看似相近，实为不同问题',0,'Distinction','Seemingly close, but different problems']};
+const TCOL=t=>({echo:'#7d55a3',contrast:'#b04a3c',distinction:'#b04a3c',parallel:'#8a6a32',example:'#3f8a4f',transition:'#4a55b0'}[t]||'#2f6f8f');
+const STATUS={text:['原稿可读','原文用词或连接词直接支持这一关系','ok','Readable in the text','The wording or connectives of the text directly support this link'],
+ endorsed:['本人认可','本人确认过的联系','ok','Endorsed by the author','A link the author has confirmed'],
+ editorial:['编辑性解读','主题相近，原文没有直接相连；是结构分析者的解读','ed','Editorial reading','Thematically close but not directly connected in the text; an interpretation by the analyst'],
+ template:['待定制','模板占位，具体内容未填写','warn','To be tailored','A template placeholder whose details are not filled in yet']};
+const kindName=k=>KIND[k][LANG==='en'?1:0];
+const typeName=t=>TYPE[t][LANG==='en'?3:0],typeDesc=t=>TYPE[t][LANG==='en'?4:1];
+const statName=s=>STATUS[s][LANG==='en'?3:0],statDesc=s=>STATUS[s][LANG==='en'?4:1];
+const tr=(o,f)=>LANG==='en'&&o[f+'_en']!=null&&o[f+'_en']!==''?o[f+'_en']:o[f];
+const U={
+ title:[D.meta.title,D.meta.title_en||D.meta.title],
+ lv1:['全文关系：段落与段间关系','Overview: paragraphs and how they relate'],lv2:['段内分块：功能块与一句话概括','Blocks: functional blocks with summaries'],
+ lv3:['段内结构：类型、分组与段内关系','Structure: kinds, groups and links inside paragraphs'],lv4:['原文阅读：逐字原文','Source: the verbatim text'],
+ out:['缩小','Zoom out'],in:['放大','Zoom in'],fit:['回到全景','Back to the overview'],test:['运行自检','Run the self-check'],
+ lang:['Switch to English','切换到中文'],info:['使用说明','How to use this map'],close:['收起','Close'],
+ vp:['可缩放、可拖动的 SOP 结构图','Zoomable, draggable SOP structure map'],
+ noteTag:['待酝酿','To develop'],
+ summary:['可读概括','Summary'],role:['所属段落的功能','Role of the paragraph'],org:['段内组织','Internal organization'],
+ bsrc:['逐字原文（P{n} 段内字符 {a}–{b}）','Verbatim source text (P{n}, characters {a}–{b})'],
+ inner:['段内关系','Links within the paragraph'],cross:['跨段关系','Links to other paragraphs'],notesHere:['指向此块的酝酿批注','Notes pointing here'],
+ zhPara:['段落中文对照','Chinese translation of the paragraph'],boundary:['边界提醒','Boundaries'],locate:['在图中定位','Locate on the map'],
+ pfun:['段落功能','Role'],blocks:['功能块','Functional blocks'],groups:['分组','Groups'],relNotes:['相关酝酿批注','Related notes'],
+ psrc:['原文（逐字）','Source text (verbatim)'],notLinked:['刻意未连的关系','Deliberately not linked'],
+ nblocks:['{n} 个功能块','{n} functional blocks'],xsub:['跨段关系','link between paragraphs'],isub:['段内关系','link within a paragraph'],
+ from:['起点','From'],to:['终点','To'],endA:['一端','One end'],endB:['另一端','Other end'],dir:['（有向）',' (directed)'],undir:['（无向）',' (undirected)'],
+ rtype:['关系类型','Kind of link'],basis:['依据性质','Basis'],why:['为什么这样连','Why this link'],caution:['不确定性与边界','Uncertainty and limits'],
+ review:['本次复核','This review'],ends:['两端原文','Text at both ends'],
+ ntext:['酝酿内容','What is still developing'],uw:['本人原话','In the author’s words'],uwo:['','Original wording'],reading:['可继续阅读','Further reading'],
+ targets:['靶点','Targets'],added:['（复核新增）',' (added in this review)'],noAnswer:['不由模型代答','Not answered by the model'],
+ nbound:['四项阅读酝酿问题不要求现在补答；图中不以模型生成的内容充当作者自己的认识。','These questions are not to be answered now; the map never presents model-generated content as the author’s own understanding.'],
+ nbt:['边界','Boundary'],psub:['段间关系汇总 · {n} 条块级关系','Summary of {n} block-level links'],plist:['包含的块级关系（放大后分开显示）','Block-level links (shown separately when zoomed in)'],
+ tres:['自检 {a}/{b} 通过','Self-check: {a} of {b} passed'],pass:['通过','Pass'],fail:['失败','Fail']
+};
+const u=(k,vars)=>{let s=U[k][LANG==='en'?1:0];if(vars)for(const v in vars)s=s.split('{'+v+'}').join(vars[v]);return s};
+const SW=c=>`<i class="sw" style="--c:${c}"></i>`;
+const IC=sel=>{const s=document.querySelector(sel+' svg');return s?`<span class="ii">${s.outerHTML}</span>`:''};
+const INFO={
+en:()=>`<h2>How to use this map</h2>
+<h3>Moving around</h3>
+<p>Turn the mouse wheel to zoom. The point under the cursor stays fixed, so you can aim at any paragraph and zoom straight into it. Drag to pan. A drag never opens anything, even when it starts on a card, because only a click without movement selects. On a touch screen, drag with one finger and pinch with two. On the keyboard, + and − zoom around the center, and 0 returns to the overview.</p>
+<h3>Four levels of detail</h3>
+<p>Text is never shrunk to fit; instead, what the map shows changes with the zoom. From far away, each paragraph is a single node with its number, a title and a one-line gist, and the lines between paragraphs show how they relate. Zoom in and each paragraph opens into its functional blocks, each with a short summary, while the lines between paragraphs slide from the paragraph frame to the specific blocks involved. Further in, every block shows its kind and status, blocks that belong together sit on a shared plate, and labeled links inside the paragraph appear. At the closest level, each block shows its verbatim source text. Nothing is rearranged as the levels change, so you keep your bearings.</p>
+<h3>The toolbar</h3>
+<p>The first group of buttons sets the level of detail. ${IC('[data-level="1"]')} The network of three nodes is the overview of paragraphs and their relations. ${IC('[data-level="2"]')} The frame holding small boxes opens each paragraph into its blocks. ${IC('[data-level="3"]')} The connected boxes add the kinds, groups and links inside each paragraph. ${IC('[data-level="4"]')} The lines of text show the verbatim source. The highlighted button always tells you which level you are at, whether you got there by clicking or by zooming; if something is selected, a click on a level centers the jump on it.</p>
+<p>The second group handles the view: ${IC('#btn-out')} zooms out, ${IC('#btn-in')} zooms in, and ${IC('#btn-fit')} the four corners return to the full overview. In the last group, ${IC('#btn-test')} the shield runs a self-check inside the page, covering text integrity, zoom anchoring, dragging versus clicking, closing the panel, text overflow, overlaps and redraw time, and restores your view when it finishes; ${IC('#btn-lang')} switches between English and Chinese; and ${IC('#btn-info')} opens these notes.</p>
+<h3>Details</h3>
+<p>Click a paragraph frame, a block, a line or its label, or one of the amber note cards, and the detail panel opens on the right. It gives the full summary, the verbatim source with its character range, the paragraph’s role and internal organization, every link in context together with the reason for it, and the notes that point there. Names in the panel select the related object when clicked, and “Locate on the map” zooms to it. While something is selected, everything unrelated fades. To close the panel, click the same object again, use the close button, press Esc, or click an empty part of the canvas.</p>
+<h3>Shapes and colors</h3>
+<p>Paragraph frames are colored by part of the essay: ${SW('#2f6f8f')}opening and preparation, ${SW('#2c7a64')}practical experience, ${SW('#7650a0')}theory and current work, and ${SW('#a8692a')}the future and the program fit. Inside a frame, the outline of a block tells you what kind of content it holds. A thick bar on the left marks a question, a band along the top marks study, square corners mark practical experience, a double border marks the object of study, fully rounded ends mark a gain, softly rounded corners mark a position or interest, a dashed outline marks a plan or aim, and a dotted grey outline marks template text still to be filled in. A striped plate behind several blocks means they stand side by side.</p>
+<h3>Lines</h3>
+<p>${SW('#2f6f8f')}Blue arrows mean that one part supports, unfolds or leads on from another. ${SW('#7d55a3')}Purple lines with dots at both ends are echoes in theme or wording; they have no direction and claim no causation. ${SW('#b04a3c')}Red lines with short bars at both ends are contrasts or distinctions. ${SW('#8a6a32')}A double line joins parallel items, ${SW('#3f8a4f')}a dotted green line leads to an example, and ${SW('#4a55b0')}a bending indigo arrow is a turn to another question. A line at full strength is supported by the wording of the text itself or has been endorsed by the author. A thinner line whose label has a dashed outline and italic text is an editorial reading, and a dashed grey line belongs to the template. ${SW('#b77822')}Dashed amber lines with open arrowheads run from a note card to the blocks it concerns.</p>
+<h3>What the map claims, and what it does not</h3>
+<p>The source text is shown word for word, exactly as in the source file. Block boundaries never change it, and the self-check confirms that the blocks join back into the original file. Block titles, summaries, groups and links are an editorial analysis and remain open to revision; the detail of every link says whether the text itself supports it, whether the author has endorsed it, or whether it is an editorial reading. The amber notes record questions the author is still developing, together with the author’s own words, and the map does not answer them.</p>
+<h3>Language</h3>
+<p>The source text stays in its original language in both versions. The Chinese version also shows the paragraph-level Chinese translation in the detail panel; the English version gives the author’s own words in translation, followed by the original wording. Switching language does not move anything on the map.</p>`,
+zh:()=>`<h2>使用说明</h2>
+<h3>移动与缩放</h3>
+<p>滚动鼠标滚轮即可缩放。光标下的位置保持不动，所以可以对准任何一段直接放大进去。拖动画布即可平移。拖动不会打开任何内容，即使从卡片上开始拖也一样，只有不移动的单击才会选中。触屏上单指拖动、双指缩放。键盘上 + 和 − 围绕中心缩放，0 回到全景。</p>
+<h3>四个层级</h3>
+<p>这张图不会把文字缩小硬塞进去，而是随缩放改变显示的内容。离得远时，每段是一个节点，显示段号、标题和一句话概括，段与段之间的连线说明它们的关系。放大后，每段展开成若干功能块，每块有一句概括；与此同时，段间连线从段落外框滑到实际相关的块上。再放大，每块显示类型与状态，同组的块放在同一块底板上，段内带标签的关系线出现。最近一层，每块显示逐字原文。层级变化时不重排任何位置，方便保持方位。</p>
+<h3>工具栏</h3>
+<p>第一组按钮决定显示层级。${IC('[data-level="1"]')}三个相连的节点是全景，只看段落与段间关系。${IC('[data-level="2"]')}框里装着小方块，表示把每段展开成功能块。${IC('[data-level="3"]')}几个相连的方块，表示再加上类型、分组和段内关系。${IC('[data-level="4"]')}几行文字表示逐字原文。高亮的按钮始终标出当前所在层级，无论是点按钮还是滚轮缩放到达的；如果已选中对象，点层级按钮会以它为中心跳转。</p>
+<p>第二组控制视图：${IC('#btn-out')}缩小，${IC('#btn-in')}放大，${IC('#btn-fit')}四个角回到全景。最后一组中，${IC('#btn-test')}盾牌在页面内运行自检，包括原文完整性、缩放锚点、拖动与点击、详情关闭、文字溢出、重叠和重绘耗时，结束后恢复原来的视图；${IC('#btn-lang')}在英文和中文之间切换；${IC('#btn-info')}打开这份说明。</p>
+<h3>详情</h3>
+<p>点击段落外框、功能块、连线或其标签，或者黄色批注卡，右侧会打开详情面板。面板给出完整概括、带字符位置的逐字原文、段落功能与段内组织、所有相关关系及其理由，以及指向这里的批注。面板里的名称可以点击，选中相应对象；“在图中定位”会把图缩放到它。选中时，无关内容会淡化。要关闭面板，可以再次点击同一对象、点关闭按钮、按 Esc，或者点击画布空白处。</p>
+<h3>形状与颜色</h3>
+<p>段落外框按文章部分着色：${SW('#2f6f8f')}开篇与准备，${SW('#2c7a64')}实践经历，${SW('#7650a0')}理论与当前工作，${SW('#a8692a')}未来与项目匹配。框内功能块的轮廓表示内容类型：左侧粗条是问题，顶部色带是学习，直角是实践经历，双线边框是研究对象，两端全圆是收获，柔和圆角是立场或兴趣，虚线框是计划或愿望，灰色点线框是尚待填写的模板。几块共用一块条纹底板，表示它们并列。</p>
+<h3>连线</h3>
+<p>${SW('#2f6f8f')}蓝色箭头表示支撑、展开或承接。${SW('#7d55a3')}两端带圆点的紫线表示主题或用词上的呼应，没有方向，也不表示因果。${SW('#b04a3c')}两端带短横的红线表示对照或区分。${SW('#8a6a32')}双线表示并列，${SW('#3f8a4f')}绿色点线指向例证，${SW('#4a55b0')}弯折的靛蓝箭头表示转向另一个问题。线条为完整粗细的，是原文用词直接支持或本人认可的关系；线较细、标签为虚线框斜体的，是编辑性解读；灰色虚线属于模板。${SW('#b77822')}黄色虚线配开放箭头，从批注卡指向它所关心的具体块。</p>
+<h3>这张图主张什么、不主张什么</h3>
+<p>原文逐字保留，与源文件完全一致。分块从不改动原文，自检会确认各块能拼回原稿。块标题、概括、分组和连线是编辑性分析，可以修改；每条关系的详情都写明它是原文直接支持、本人认可，还是编辑性解读。黄色批注记录作者仍在酝酿的问题和本人原话，图中不替作者回答。</p>
+<h3>语言</h3>
+<p>两个版本的原文都保持原语言。中文版会在详情中另外显示段落级中文对照；英文版给出作者原话的译文，并附上原话。切换语言不会移动图上的任何位置。</p>`};
+const G={colW:600,colGap:170,rowGap:180,pad:64,head:140,plateTop:58,platePad:24,gx:520,gy:340,noteW:700};
+const GRID=D.layout.grid; // 段落在网格中的 [列, 行]，由内容文件 layout.grid 指定
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),lerp=(a,b,t)=>a+(b-a)*t;
+const ramp=px=>clamp((px-10)/3);
+const smooth=t=>t*t*(3-2*t);
+function el(tag,cls,text,parent){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;if(parent)parent.append(e);return e}
+function sv(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.append(e);return e}
+
+/* ---------- 索引 ---------- */
+const P=new Map(),B=new Map(),N=new Map(),X=new Map(),I=new Map();
+D.paragraphs.forEach(p=>{P.set(p.id,p);p.blocks.forEach(b=>{b.pid=p.id;B.set(b.id,b)});p.internalEdges.forEach(e=>{e.pid=p.id;I.set(e.id,e)})});
+D.crossEdges.forEach(e=>X.set(e.id,e));D.notes.forEach(n=>N.set(n.id,n));
+const pairKey=(a,b)=>{const x=B.get(a).pid,y=B.get(b).pid;return Number(x.slice(1))<Number(y.slice(1))?x+'|'+y:y+'|'+x};
+const pairs=new Map();D.crossEdges.forEach(e=>{const k=pairKey(e.from,e.to);if(!pairs.has(k))pairs.set(k,[]);pairs.get(k).push(e)});
+
+/* ---------- 构建 DOM（文字经 LOC 注册，切换语言时就地替换） ---------- */
+const LOC=[];
+function lx(e,f){LOC.push([e,f]);e.textContent=f();return e}
+function applyText(){LOC.forEach(([e,f])=>e.textContent=f())}
+D.paragraphs.forEach(p=>{
+  const [c,bg]=CAT[p.category];
+  const f=el('section','frame',null,FR);f.dataset.ref='p:'+p.id;f.style.setProperty('--c',c);f.style.setProperty('--bg',bg);
+  const h=el('div','fhead',null,f);el('span','pn','P'+p.number,h);lx(el('span','pt',null,h),()=>tr(p,'title'));
+  const o=el('div','over',null,f);el('div','pn','P'+p.number,o);lx(el('div','pt',null,o),()=>tr(p,'title'));lx(el('div','pg',null,o),()=>tr(p,'gist'));
+  p.el=f;
+  p.groups.forEach(g=>{const pl=el('div','plate '+g.form,null,f);pl.style.setProperty('--c',c);lx(el('div','pl-title',null,pl),()=>tr(g,'title'));g.el=pl});
+  p.blocks.forEach(b=>{
+    const a=el('article','block k-'+b.kind,null,ND);a.dataset.ref='b:'+b.id;a.style.setProperty('--c',b.kind==='template'?'#7d878e':c);
+    const m=el('div','b-meta',null,a);lx(el('span','kind',null,m),()=>kindName(b.kind));lx(el('span','status',null,m),()=>tr(b,'status'));
+    lx(el('h3','b-title',null,a),()=>tr(b,'title'));lx(el('p','b-sum',null,a),()=>tr(b,'summary'));
+    const s=el('div','b-src',null,a);
+    const src=el('p','src',b.sourceText,s);src.lang='en';b.srcEl=src;b.el=a;
+  });
+});
+D.notes.forEach(n=>{
+  const a=el('article','note',null,ND);a.dataset.ref='n:'+n.id;
+  const o=el('div','n-over',null,a);lx(el('div','tag',null,o),()=>u('noteTag'));lx(el('div','tt',null,o),()=>tr(n,'title'));
+  const body=el('div','n-body',null,a);
+  lx(el('div','tag',null,body),()=>tr(n,'status'));lx(el('h3','tt',null,body),()=>tr(n,'title'));lx(el('p','nt',null,body),()=>tr(n,'text'));
+  lx(el('p','nw',null,body),()=>'“'+tr(n,'userWords')+'”');lx(el('p','nr',null,body),()=>tr(n,'reading'));n.el=a;
+});
+
+/* ---------- 布局（只算一次，缩放时不重排） ---------- */
+function layout(){
+  const fw=G.pad*2+G.colW*2+G.colGap;
+  B.forEach(b=>{b.w=b.cell.cs*G.colW+(b.cell.cs-1)*G.colGap;b.el.style.width=b.w+'px';b.el.style.height='auto'});
+  N.forEach(n=>{n.w=G.noteW;n.el.style.width=n.w+'px';n.el.style.height='auto'});
+  {const keep=LANG;for(const lg of['zh','en']){LANG=lg;applyText();B.forEach(b=>b.nh=Math.max(b.nh||0,b.el.offsetHeight));N.forEach(n=>n.nh=Math.max(n.nh||0,n.el.offsetHeight))}LANG=keep;applyText()}
+  D.paragraphs.forEach(p=>{
+    const rows=Math.max(...p.blocks.map(b=>b.cell.r+b.cell.rs));
+    p.blocks.forEach(b=>{b.w=b.cell.cs*G.colW+(b.cell.cs-1)*G.colGap;b.el.style.width=b.w+'px';b.el.style.height='auto'});
+    const rh=new Array(rows).fill(0);
+    p.blocks.filter(b=>b.cell.rs===1).forEach(b=>rh[b.cell.r]=Math.max(rh[b.cell.r],b.nh));
+    p.blocks.filter(b=>b.cell.rs>1).forEach(b=>{const need=b.nh,have=rh.slice(b.cell.r,b.cell.r+b.cell.rs).reduce((a,v)=>a+v,0)+(b.cell.rs-1)*G.rowGap;if(need>have)rh[b.cell.r+b.cell.rs-1]+=need-have});
+    const ry=[];let y=G.head+G.plateTop;rh.forEach((h,i)=>{ry[i]=y;y+=h+G.rowGap});
+    p.fw=fw;p.fh=Math.max(y-G.rowGap+G.pad,780);p.rh=rh;p.ry=ry;
+    p.blocks.forEach(b=>{b.rx=G.pad+b.cell.c*(G.colW+G.colGap);b.ry=ry[b.cell.r];b.h=rh.slice(b.cell.r,b.cell.r+b.cell.rs).reduce((a,v)=>a+v,0)+(b.cell.rs-1)*G.rowGap});
+  });
+  const rowH=[];
+  D.paragraphs.forEach(p=>{const [c,r]=GRID[p.id];rowH[r]=Math.max(rowH[r]||0,p.fh)});
+  D.notes.forEach(n=>{n.h=n.nh;n.el.style.height=n.h+'px'});
+  // 批注放在 layout.notes 指定段落的下方：每行最多两张（左右对齐），单张居中
+  const under=new Map();D.notes.forEach(n=>{const k=(D.layout.notes[n.id]||{}).under;if(!k)throw new Error('layout.notes 缺少 '+n.id);if(!under.has(k))under.set(k,[]);under.get(k).push(n)});
+  under.forEach((list,pid)=>{const p=P.get(pid),[,r]=GRID[pid];let y=p.fh+90;const rows=[];for(let i=0;i<list.length;i+=2)rows.push(list.slice(i,i+2));
+    rows.forEach(row=>{row.forEach((n,j)=>{n._rel={dx:row.length===1?(fw-n.w)/2:(j===0?0:fw-n.w),dy:y}});y+=Math.max(...row.map(n=>n.h))+80});
+    rowH[r]=Math.max(rowH[r],y-80);list.forEach(n=>n._pid=pid)});
+  const nCols=Math.max(...Object.values(GRID).map(g=>g[0]))+1;
+  const colX=[...Array(nCols).keys()].map(c=>c*(fw+G.gx)),rowY=[0];for(let r=1;r<rowH.length;r++)rowY[r]=rowY[r-1]+rowH[r-1]+G.gy;
+  D.paragraphs.forEach(p=>{
+    const [c,r]=GRID[p.id];p.gc=c;p.gr=r;p.x=colX[c];p.y=rowY[r];
+    Object.assign(p.el.style,{left:p.x+'px',top:p.y+'px',width:p.fw+'px',height:p.fh+'px'});
+    p.blocks.forEach(b=>{b.x=p.x+b.rx;b.y=p.y+b.ry;Object.assign(b.el.style,{left:b.x+'px',top:b.y+'px',height:b.h+'px'})});
+    p.groups.forEach(g=>{const bs=g.blocks.map(id=>B.get(id));const x0=Math.min(...bs.map(b=>b.rx))-G.platePad,y0=Math.min(...bs.map(b=>b.ry))-G.plateTop,x1=Math.max(...bs.map(b=>b.rx+b.w))+G.platePad,y1=Math.max(...bs.map(b=>b.ry+b.h))+G.platePad;
+      Object.assign(g.el.style,{left:x0+'px',top:y0+'px',width:(x1-x0)+'px',height:(y1-y0)+'px'})});
+  });
+  D.notes.forEach(n=>{const p=P.get(n._pid);n.x=p.x+n._rel.dx;n.y=p.y+n._rel.dy;n.el.style.left=n.x+'px';n.el.style.top=n.y+'px'});
+  const lastR=rowH.length-1,maxX=colX[nCols-1]+fw,maxY=rowY[lastR]+rowH[lastR]+260;
+  WORLD.w=maxX;WORLD.h=maxY;WORLD.rowY=rowY;WORLD.rowH=rowH;WORLD.colX=colX;WORLD.fw=fw;
+  SVG.setAttribute('width',maxX);SVG.setAttribute('height',maxY);
+}
+const WORLD={};
+
+/* ---------- 端口与曲线 ---------- */
+const NORM={top:[0,-1],bottom:[0,1],left:[-1,0],right:[1,0]};
+function sides(pa,pb){
+  const dc=pb.gc-pa.gc,dr=pb.gr-pa.gr;
+  if(dr===0)return Math.abs(dc)===1?[dc>0?'right':'left',dc>0?'left':'right',0]:(pa.gr===0?['top','top',1]:['bottom','bottom',1]);
+  if(dc===0)return Math.abs(dr)===1?[dr>0?'bottom':'top',dr>0?'top':'bottom',0]:['left','left',1];
+  return [dr>0?'bottom':'top',dr>0?'top':'bottom',0];
+}
+function framePort(p,side,other){ // 段落级端口：边的中点，按对方方向偏移，避免全部挤在一点
+  const off=other?clamp(side==='top'||side==='bottom'?(other.gc-p.gc):(other.gr-p.gr),-2,2)*0.2:0;
+  if(side==='top'||side==='bottom')return{x:p.x+p.fw*(0.5+off),y:side==='top'?p.y:p.y+p.fh};
+  return{x:side==='left'?p.x:p.x+p.fw,y:p.y+p.fh*(0.5+off*0.8)};
+}
+function segHits(a,b,r,m){ // 轴对齐线段与矩形相交
+  const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y);
+  return x1>r.x+m&&x0<r.x+r.w-m&&y1>r.y+m&&y0<r.y+r.h-m;
+}
+function blockPort(b,side){ // 块级端口：返回 [块边锚点, …折点, 段落边端口]；被其他块挡住时沿块间空隙绕行
+  const p=P.get(b.pid),others=p.blocks.filter(o=>o!==b),hit=(a,c)=>others.some(o=>segHits(a,c,o,2));
+  const vert=side==='top'||side==='bottom',edgeY=side==='top'?p.y:p.y+p.fh,edgeX=side==='left'?p.x:p.x+p.fw;
+  if(vert){const x=b.x+b.w/2,a={x,y:side==='top'?b.y:b.y+b.h},q={x,y:edgeY};if(!hit(a,q))return[a,q];
+    const cands=[b.x-G.colGap/2,b.x+b.w+G.colGap/2,p.x+G.pad/2,p.x+p.fw-G.pad/2].filter(cx=>cx>p.x&&cx<p.x+p.fw);
+    for(const cx of cands){const y=b.y+b.h*0.78,a2={x:cx<b.x?b.x:b.x+b.w,y},v={x:cx,y},q2={x:cx,y:edgeY};if(!hit(v,q2)&&!hit(a2,v))return[a2,v,q2]}
+    return[a,q]}
+  const y=b.y+Math.min(b.h/2,170),a={x:side==='left'?b.x:b.x+b.w,y},q={x:edgeX,y};if(!hit(a,q))return[a,q];
+  const ups=b.cell.r>0?[b.y-G.rowGap/2,b.y+b.h+G.rowGap/2]:[b.y+b.h+G.rowGap/2,b.y-G.rowGap/2];
+  for(const cy of ups){const ax=b.x+b.w*(side==='right'?0.78:0.22),a2={x:ax,y:cy<b.y?b.y:b.y+b.h},v={x:ax,y:cy},q2={x:edgeX,y:cy};if(!hit(v,q2))return[a2,v,q2]}
+  return[a,q];
+}
+function lerpPts(f0,pts,t){return pts.map(q=>({x:lerp(f0.x,q.x,t),y:lerp(f0.y,q.y,t)}))}
+function endAngle(pts,side){const a=pts[0],b=pts[1];if(b&&Math.hypot(a.x-b.x,a.y-b.y)>1)return Math.atan2(a.y-b.y,a.x-b.x);const n=NORM[side];return Math.atan2(-n[1],-n[0])}
+function bez(a,c1,c2,b,t){const u=1-t;return{x:u*u*u*a.x+3*u*u*t*c1.x+3*u*t*t*c2.x+t*t*t*b.x,y:u*u*u*a.y+3*u*u*t*c1.y+3*u*t*t*c2.y+t*t*t*b.y}}
+function crossGeom(e,t){
+  const bf=B.get(e.from),bt=B.get(e.to),pf=P.get(bf.pid),pt=P.get(bt.pid);
+  const [sf,st,bulge]=sides(pf,pt);
+  const F=lerpPts(framePort(pf,sf,pt),blockPort(bf,sf),t),Tp=lerpPts(framePort(pt,st,pf),blockPort(bt,st),t);
+  const fp=F[F.length-1],tp=Tp[Tp.length-1],fa=F[0],ta=Tp[0];
+  const dist=Math.hypot(tp.x-fp.x,tp.y-fp.y),k=bulge?260+dist*0.05:clamp(dist*0.42,90,420);
+  const nf=NORM[sf],nt=NORM[st];
+  const c1={x:fp.x+nf[0]*k,y:fp.y+nf[1]*k},c2={x:tp.x+nt[0]*k,y:tp.y+nt[1]*k};
+  const d='M'+F.map(q=>q.x+','+q.y).join('L')+`C${c1.x},${c1.y} ${c2.x},${c2.y} ${tp.x},${tp.y}`+Tp.slice(0,-1).reverse().map(q=>'L'+q.x+','+q.y).join('');
+  return{fa,fp,c1,c2,tp,ta,nf,nt,endA:endAngle(Tp,st),d};
+}
+function noteSides(n,p){ // 批注卡与靶段落的相对位置决定出入边
+  const nx0=n.x,nx1=n.x+n.w,ny0=n.y,ny1=n.y+n.h;
+  if(p.y+p.fh<=ny0&&p.x<nx1&&p.x+p.fw>nx0)return['top','bottom',0];
+  if(p.y>=ny1&&p.x<nx1&&p.x+p.fw>nx0)return['bottom','top',0];
+  if(p.x>=nx1&&p.x-nx1<G.gx*2.6&&p.y<ny1&&p.y+p.fh>ny0)return['right','left',0];
+  if(p.x+p.fw<=nx0&&nx0-p.x-p.fw<G.gx*2.6&&p.y<ny1&&p.y+p.fh>ny0)return['left','right',0];
+  return['bottom','bottom',1];
+}
+function noteGeom(n,b,t,idx){
+  const p=P.get(b.pid),[ns,ps,low]=noteSides(n,p),nm=NORM[ns],pm=NORM[ps];
+  const o=ns==='top'||ns==='bottom'?{x:n.x+n.w*(0.3+0.4*idx/Math.max(1,n.targets.length-1)),y:ns==='top'?n.y:n.y+n.h}:{x:ns==='left'?n.x:n.x+n.w,y:n.y+n.h/2};
+  const stem={x:o.x+nm[0]*60,y:o.y+nm[1]*60};
+  const f0=ps==='top'||ps==='bottom'?{x:p.x+p.fw*(low?0.3+0.1*idx:0.5),y:ps==='top'?p.y:p.y+p.fh}:{x:ps==='left'?p.x:p.x+p.fw,y:p.y+p.fh*0.78};
+  const Q=lerpPts(f0,blockPort(b,ps),t),fp=Q[Q.length-1],fa=Q[0];
+  let c1,c2;
+  if(low){const yb=WORLD.rowY[1]+WORLD.rowH[1]+110+idx*45;c1={x:stem.x,y:yb};c2={x:fp.x,y:yb}}
+  else{const k=clamp(Math.hypot(fp.x-stem.x,fp.y-stem.y)*0.45,60,360);c1={x:stem.x+nm[0]*k,y:stem.y+nm[1]*k};c2={x:fp.x+pm[0]*k,y:fp.y+pm[1]*k}}
+  return{o,stem,fp,fa,c1,c2,side:ps,endA:endAngle(Q,ps),d:`M${o.x},${o.y}L${stem.x},${stem.y}C${c1.x},${c1.y} ${c2.x},${c2.y} ${fp.x},${fp.y}`+Q.slice(0,-1).reverse().map(q=>'L'+q.x+','+q.y).join('')};
+}
+function innerGeom(e){
+  const a=B.get(e.from),b=B.get(e.to);
+  const ox0=Math.max(a.x,b.x),ox1=Math.min(a.x+a.w,b.x+b.w),oy0=Math.max(a.y,b.y),oy1=Math.min(a.y+a.h,b.y+b.h);
+  let p0,p1,orient;
+  if(ox1-ox0>40){const x=a.w<=b.w?a.x+a.w/2:b.x+b.w/2;orient='v';
+    if(a.y<b.y){p0={x,y:a.y+a.h};p1={x,y:b.y}}else{p0={x,y:a.y};p1={x,y:b.y+b.h}}}
+  else if(oy1-oy0>40){const y=Math.min(oy0+Math.min(130,(oy1-oy0)/2),(oy0+oy1)/2);orient='h';
+    if(a.x<b.x){p0={x:a.x+a.w,y};p1={x:b.x,y}}else{p0={x:a.x,y};p1={x:b.x+b.w,y}}}
+  else{orient='d';const ax=a.x<b.x?a.x+a.w:a.x,bx=a.x<b.x?b.x:b.x+b.w,ay=a.y<b.y?a.y+a.h:a.y,by=a.y<b.y?b.y:b.y+b.h;
+    p0={x:ax-(a.x<b.x?60:-60),y:ay};p1={x:bx+(a.x<b.x?60:-60),y:by}}
+  let d=`M${p0.x},${p0.y}L${p1.x},${p1.y}`,mid={x:(p0.x+p1.x)/2,y:(p0.y+p1.y)/2};
+  if(e.type==='transition'&&orient==='v'){const my=(p0.y+p1.y)/2,dx=-70;d=`M${p0.x},${p0.y}L${p0.x},${my-30}Q${p0.x},${my} ${p0.x+dx},${my}Q${p1.x},${my} ${p1.x},${my+30}L${p1.x},${p1.y}`;
+    d=`M${p0.x},${p0.y}C${p0.x},${my} ${p0.x+dx*1.6},${my-10} ${p0.x+dx},${my}S${p1.x},${my+6} ${p1.x},${p1.y}`;mid={x:p0.x+dx,y:my}}
+  return{p0,p1,d,mid,orient,end:{x:p1.x,y:p1.y},dir:Math.atan2(p1.y-p0.y,p1.x-p0.x)};
+}
+
+/* ---------- SVG 元素 ---------- */
+function mkEdge(group,ref,color,extra={}){
+  const g=sv('g',{'data-ref':ref},group);
+  const under=extra.dbl?sv('path',{fill:'none',stroke:color,'stroke-linecap':'round','vector-effect':'non-scaling-stroke'},g):null;
+  const vis=sv('path',{fill:'none',stroke:extra.dbl?'#fbfaf6':color,'stroke-linecap':'round','vector-effect':'non-scaling-stroke'},g);
+  const head=sv('path',{fill:color,stroke:color,'stroke-linejoin':'round','vector-effect':'non-scaling-stroke'},g);
+  const tail=sv('circle',{fill:color,r:0},g),tip=sv('circle',{fill:color,r:0},g);
+  const hit=sv('path',{class:'hit','stroke-width':16,'vector-effect':'non-scaling-stroke','data-ref':ref},g);
+  return{g,under,vis,head,tail,tip,hit,color};
+}
+function arrow(at,ang,size,kind){ // kind: fill | open | hollow
+  const a1=ang+Math.PI-0.45,a2=ang+Math.PI+0.45;
+  const p1=`${at.x+size*Math.cos(a1)},${at.y+size*Math.sin(a1)}`,p2=`${at.x+size*Math.cos(a2)},${at.y+size*Math.sin(a2)}`;
+  return kind==='open'?`M${p1}L${at.x},${at.y}L${p2}`:`M${p1}L${at.x},${at.y}L${p2}Z`;
+}
+const SX=new Map(),SI=new Map(),SN=[],SP=new Map();
+function buildEdges(){
+  pairs.forEach((list,k)=>{const col=TCOL(list[0].type);SP.set(k,{list,...mkEdge(document.getElementById('g-pair'),'pair:'+k,col)})});
+  D.crossEdges.forEach(e=>SX.set(e.id,{e,...mkEdge(document.getElementById('g-cross'),'x:'+e.id,e.status==='template'?'#8b949b':TCOL(e.type))}));
+  D.paragraphs.forEach(p=>p.internalEdges.forEach(e=>SI.set(e.id,{e,geo:innerGeom(e),...mkEdge(document.getElementById('g-inner'),'i:'+e.id,e.status==='template'?'#8b949b':TCOL(e.type),{dbl:e.type==='parallel'})})));
+  D.notes.forEach(n=>n.targets.forEach((t,i)=>SN.push({n,t,i,...mkEdge(document.getElementById('g-note'),'n:'+n.id,'#b77822')})));
+  // 标签
+  pairs.forEach((list,k)=>{const s=SP.get(k),l=el('div','elabel pair',null,LB);lx(l,()=>(LANG==='en'?D.pairLabels_en:D.pairLabels)[k]);l.dataset.ref='pair:'+k;l.style.setProperty('--c',s.color);if(list.every(e=>e.status==='editorial'))l.classList.add('editorial');if(list.every(e=>e.status==='template'))l.classList.add('template');s.label=l});
+  SX.forEach(s=>{const l=el('div','elabel cross '+s.e.status,null,LB);lx(el('span','ty',null,l),()=>typeName(s.e.type));lx(el('span','',null,l),()=>tr(s.e,'label'));l.dataset.ref='x:'+s.e.id;l.style.setProperty('--c',s.color);s.label=l});
+  SI.forEach(s=>{const l=el('div','elabel inner '+s.e.status+(s.geo.orient==='v'?' wide':''),null,LB);lx(el('span','ty',null,l),()=>typeName(s.e.type));lx(el('span','',null,l),()=>tr(s.e,'label'));l.dataset.ref='i:'+s.e.id;l.style.setProperty('--c',s.color);s.label=l;
+    l.style.left=s.geo.mid.x+'px';l.style.top=s.geo.mid.y+'px'});
+  measureLabels();
+}
+function measureLabels(){ // 两种语言的标签尺寸各测一次，缩放时不再读布局
+  const keep=LANG;for(const lg of['zh','en']){LANG=lg;applyText();LB.querySelectorAll('.elabel').forEach(l=>{(l._sz=l._sz||{})[lg]={w:l.offsetWidth,h:l.offsetHeight}})}LANG=keep;applyText();
+}
+
+
+/* ---------- 相机 ---------- */
+const cam={x:0,y:0,s:.2};let fitS=.2,selected=null,related=null,raf=0;
+const L=()=>({1:Math.min(fitS,.28),2:.56,3:.78,4:1.08}); // 四个纯净比例：每层所有元素透明度为 0 或 1
+const minS=()=>fitS*.6,maxS=3;
+function setCam(s,x,y){cam.s=clamp(s,minS(),maxS);cam.x=x;cam.y=y;moving();schedule()}
+function zoomAt(s,sx,sy){const wx=(sx-cam.x)/cam.s,wy=(sy-cam.y)/cam.s;s=clamp(s,minS(),maxS);setCam(s,sx-wx*s,sy-wy*s)}
+function worldAt(sx,sy){return{x:(sx-cam.x)/cam.s,y:(sy-cam.y)/cam.s}}
+function fit(animate){const m=40,s=Math.min((V.clientWidth-2*m)/WORLD.w,(V.clientHeight-2*m)/WORLD.h,.28);fitS=s;const x=(V.clientWidth-WORLD.w*s)/2,y=(V.clientHeight-WORLD.h*s)/2;animate?animateTo(s,x,y):setCam(s,x,y)}
+let anim=0;
+function animateTo(s,x,y,ms=380){
+  cancelAnimationFrame(anim);if(matchMedia('(prefers-reduced-motion: reduce)').matches){setCam(s,x,y);return}
+  const s0=cam.s,x0=cam.x,y0=cam.y,t0=performance.now();
+  // 以屏幕中心对应的世界点做对数插值，路径平滑
+  const step=now=>{const k=smooth(clamp((now-t0)/ms));const ss=Math.exp(lerp(Math.log(s0),Math.log(s),k));
+    const cx=V.clientWidth/2,cy=V.clientHeight/2,w0={x:(cx-x0)/s0,y:(cy-y0)/s0},w1={x:(cx-x)/s,y:(cy-y)/s};
+    const wx=lerp(w0.x,w1.x,k),wy=lerp(w0.y,w1.y,k);setCam(ss,cx-wx*ss,cy-wy*ss);if(k<1)anim=requestAnimationFrame(step)};
+  anim=requestAnimationFrame(step);
+}
+/* 定位：只落在“纯净”的层级比例上（各层透明度均为 0 或 1），并避开详情面板。
+   L()[1..4] 是四个纯净比例；目标放不下时，改为对准该对象最有代表性的点（标签或顶部），而不是缩到两层之间。 */
+function visibleArea(){const panelOpen=PANEL.classList.contains('open'),wide=V.clientWidth>900;
+  const pw=panelOpen&&wide?Math.min(440,V.clientWidth*0.45):0,ph=panelOpen&&!wide?V.clientHeight*0.55:0;
+  return{x:0,y:0,w:V.clientWidth-pw,h:V.clientHeight-ph}}
+function anchorOf(ref){ // 放不下整个对象时用来对准的点
+  const [k,id]=ref.split(':');
+  if(k==='x'){const sx=SX.get(id),g=crossGeom(sx.e,1);return bez(g.fp,g.c1,g.c2,g.tp,.5)}
+  if(k==='i')return SI.get(id).geo.mid;
+  if(k==='pair'){const g=SP.get(id).geo||crossGeom(pairs.get(id)[0],0);return bez(g.fp,g.c1,g.c2,g.tp,.5)}
+  return null;
+}
+function focusOn(ref,level,instant){
+  const k=ref.split(':')[0];
+  if(!level)level=k==='p'?2:k==='pair'?1:k==='x'?2:k==='i'?3:4;
+  const A=visibleArea(),m=40,lv=L(),cx=A.x+A.w/2,cy=A.y+A.h/2;
+  let s=lv[level],tx,ty;
+  if(k==='pair'){const a=anchorOf(ref),list=pairs.get(ref.slice(5)),bx=list.map(e=>boxOf('x:'+e.id)),x0=Math.min(...bx.map(b=>b.x)),y0=Math.min(...bx.map(b=>b.y)),x1=Math.max(...bx.map(b=>b.x+b.w)),y1=Math.max(...bx.map(b=>b.y+b.h));
+    s=Math.min(lv[1],(A.w-2*m)/(x1-x0),(A.h-2*m)/(y1-y0));s=Math.min(s,lv[1]);tx=a.x;ty=a.y;
+    if(s<minS())s=minS();
+  }else{
+    const r=boxOf(ref);if(!r)return;
+    const fits=r.w*s<=A.w-2*m&&r.h*s<=A.h-2*m;
+    if(fits){tx=r.x+r.w/2;ty=r.y+r.h/2}
+    else if(k==='x'||k==='i'){const a=anchorOf(ref);tx=a.x;ty=a.y}
+    else{tx=r.w*s<=A.w-2*m?r.x+r.w/2:r.x+(A.w/2-m)/s;ty=r.h*s<=A.h-2*m?r.y+r.h/2:r.y+(A.h/2-m)/s}
+  }
+  s=clamp(s,minS(),maxS);
+  const X0=cx-tx*s,Y0=cy-ty*s;
+  if(instant){cancelAnimationFrame(anim);setCam(s,X0,Y0)}else animateTo(s,X0,Y0);
+}
+function boxOf(ref){const [k,id]=ref.split(':');if(k==='p'){const p=P.get(id);return{x:p.x,y:p.y,w:p.fw,h:p.fh}}if(k==='b'){const b=B.get(id);return{x:b.x,y:b.y,w:b.w,h:b.h}}
+  if(k==='n'){const n=N.get(id);return{x:n.x,y:n.y,w:n.w,h:n.h}}
+  if(k==='x'||k==='i'){const e=(k==='x'?X:I).get(id),a=B.get(e.from),b=B.get(e.to);const x0=Math.min(a.x,b.x),y0=Math.min(a.y,b.y);return{x:x0,y:y0,w:Math.max(a.x+a.w,b.x+b.w)-x0,h:Math.max(a.y+a.h,b.y+b.h)-y0}}return null}
+
+/* ---------- 渲染 ---------- */
+const T={};
+function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;render()})}
+const LASTV={};
+function cull(){ // 只绘制视口附近的对象，远处的段落、块、标签隐藏
+  const m=0.25,vw=V.clientWidth/cam.s,vh=V.clientHeight/cam.s,x0=-cam.x/cam.s-vw*m,y0=-cam.y/cam.s-vh*m,x1=x0+vw*(1+2*m),y1=y0+vh*(1+2*m);
+  const vis=(x,y,w,h)=>x<x1&&x+w>x0&&y<y1&&y+h>y0;
+  const set=(e,on)=>{if(e._cull!==!on){e.classList.toggle('cull',!on);e._cull=!on}};
+  D.paragraphs.forEach(p=>set(p.el,vis(p.x,p.y,p.fw,p.fh)));
+  B.forEach(b=>set(b.el,vis(b.x,b.y,b.w,b.h)));
+  N.forEach(n=>set(n.el,vis(n.x,n.y,n.w,n.h)));
+  SI.forEach(si=>{const g=si.geo;set(si.label,vis(Math.min(g.p0.x,g.p1.x)-220,Math.min(g.p0.y,g.p1.y)-60,Math.abs(g.p1.x-g.p0.x)+440,Math.abs(g.p1.y-g.p0.y)+120))});
+}
+let movingT=0;
+function moving(){W.classList.add('moving');clearTimeout(movingT);movingT=setTimeout(()=>W.classList.remove('moving'),180)}
+function render(){
+  const s=cam.s;
+  W.style.transform=`translate(${cam.x}px,${cam.y}px) scale(${s})`;
+  T.tb=ramp(30*s);T.tov=1-clamp((30*s-8.5)/1.5);T.ts=ramp(24*s);T.tst=ramp(17*s);T.tsrc=clamp((13*s-10.5)/2.5);T.tpl=T.ts;T.tl=ramp(24*s);T.tin=ramp(17*s);
+  for(const k of['tb','tov','ts','tst','tsrc','tpl']){const v=T[k].toFixed(3);if(LASTV[k]!==v){W.style.setProperty('--'+k,v);LASTV[k]=v}}
+  const flags={'no-blocks':T.tb<.01,'no-over':T.tov<.01,'no-src':T.tsrc<.01,'no-sum':T.ts<.01,'no-st':T.tst<.01};
+  for(const k in flags)if(LASTV[k]!==flags[k]){W.classList.toggle(k,flags[k]);LASTV[k]=flags[k]}
+  cull();
+  const t=smooth(T.tb),px=1/s;
+  const isRel=ref=>!related||related.has(ref);
+  // 段落级聚合线
+  SP.forEach((sp,k)=>{
+    const e=sp.list[0],g=crossGeom(e,0),op=T.tov;
+    const directed=sp.list.every(x=>TYPE[x.type][2])&&new Set(sp.list.map(x=>x.from<x.to)).size===1;
+    const allTpl=sp.list.every(x=>x.status==='template'),allEd=sp.list.every(x=>x.status==='editorial');
+    const w=(2.4+1.3*(sp.list.length-1))*(allEd?0.7:1);
+    const relp=!related||sp.list.some(x=>related.has('x:'+x.id));
+    const a=B.get(e.from).pid<B.get(e.to).pid;
+    const flip=!a&&false;
+    sp.g.style.opacity=op*(relp?1:.12);sp.g.style.display=op<.01?'none':'';
+    sp.vis.setAttribute('d',`M${g.fp.x},${g.fp.y}C${g.c1.x},${g.c1.y} ${g.c2.x},${g.c2.y} ${g.tp.x},${g.tp.y}`);sp.hit.setAttribute('d',sp.vis.getAttribute('d'));
+    sp.vis.setAttribute('stroke-width',w);sp.vis.setAttribute('stroke-dasharray',allTpl?`${10*px} ${7*px}`:'none');
+    if(directed){const ang=Math.atan2(g.tp.y-g.c2.y,g.tp.x-g.c2.x);sp.head.setAttribute('d',arrow(g.tp,ang,14*px));sp.head.setAttribute('stroke-width',1);sp.tip.setAttribute('r',0);sp.tail.setAttribute('r',0)}
+    else{sp.head.setAttribute('d','');sp.tip.setAttribute('cx',g.tp.x);sp.tip.setAttribute('cy',g.tp.y);sp.tip.setAttribute('r',5*px);sp.tail.setAttribute('cx',g.fp.x);sp.tail.setAttribute('cy',g.fp.y);sp.tail.setAttribute('r',5*px)}
+    sp.mid=bez(g.fp,g.c1,g.c2,g.tp,.5);sp.geo=g;sp.op=op*(relp?1:.12);
+  });
+  // 块级跨段线（与聚合线交叉淡入；端点由段落边连续滑到块）
+  SX.forEach(sx=>{
+    const e=sx.e,g=crossGeom(e,t),op=T.tb;sx.geo=g;
+    const rel=isRel('x:'+e.id),selE=selected==='x:'+e.id;
+    sx.g.style.display=op<.01?'none':'';sx.g.style.opacity=op*(rel?1:.1);
+    sx.vis.setAttribute('d',g.d);sx.hit.setAttribute('d',g.d);
+    const w=(e.status==='editorial'?1.7:2.7)+(selE?1.8:0)+(related&&rel&&!selE?0.6:0);
+    sx.vis.setAttribute('stroke-width',w);sx.vis.setAttribute('stroke-dasharray',e.status==='template'?`${10*px} ${7*px}`:'none');
+    sx.vis.setAttribute('stroke-opacity',e.status==='editorial'?.8:1);
+    const endA=g.endA;
+    if(TYPE[e.type][2]){sx.head.setAttribute('d',arrow(g.ta,endA,13*px,e.type==='purpose'?'hollow':'fill'));sx.head.setAttribute('fill',e.type==='purpose'?'#fbfaf6':sx.color);sx.head.setAttribute('stroke-width',1.6);sx.tip.setAttribute('r',0);sx.tail.setAttribute('r',4*px);sx.tail.setAttribute('cx',g.fa.x);sx.tail.setAttribute('cy',g.fa.y)}
+    else{sx.head.setAttribute('d','');for(const [c,p] of[[sx.tip,g.ta],[sx.tail,g.fa]]){c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',5*px)}}
+  });
+  // 段内关系
+  SI.forEach(si=>{
+    const e=si.e,g=si.geo,op=T.tin,rel=isRel('i:'+e.id),selE=selected==='i:'+e.id;
+    si.g.style.display=op<.01?'none':'';si.g.style.opacity=op*(rel?1:.12);
+    si.vis.setAttribute('d',g.d);si.hit.setAttribute('d',g.d);
+    if(si.under){si.under.setAttribute('d',g.d);si.under.setAttribute('stroke-width',7+(selE?2:0));si.vis.setAttribute('stroke-width',2.4)}
+    else si.vis.setAttribute('stroke-width',2.2+(selE?1.6:0));
+    si.vis.setAttribute('stroke-dasharray',e.type==='example'?`${2*px} ${7*px}`:e.type==='scope'?`${16*px} ${8*px}`:e.status==='template'?`${10*px} ${7*px}`:'none');
+    si.vis.setAttribute('stroke-opacity',e.status==='editorial'?.8:1);
+    if(TYPE[e.type][2]){si.head.setAttribute('d',arrow(g.end,e.type==='transition'?Math.PI/2*(g.p1.y>g.p0.y?1:-1):g.dir,12*px,e.type==='purpose'?'hollow':'fill'));si.head.setAttribute('fill',e.type==='purpose'?'#fff':si.color);si.head.setAttribute('stroke-width',1.6);
+      si.tail.setAttribute('cx',g.p0.x);si.tail.setAttribute('cy',g.p0.y);si.tail.setAttribute('r',(e.type==='example'?6:3.5)*px);si.tip.setAttribute('r',0)}
+    else if(e.type==='parallel'){si.head.setAttribute('d','');si.tail.setAttribute('r',0);si.tip.setAttribute('r',0)}
+    else{ // 对照、区分：两端短横
+      const a=g.dir+Math.PI/2,h=9*px,bar=p=>`M${p.x+h*Math.cos(a)},${p.y+h*Math.sin(a)}L${p.x-h*Math.cos(a)},${p.y-h*Math.sin(a)}`;
+      si.head.setAttribute('d',bar(g.p0)+bar(g.p1));si.head.setAttribute('stroke-width',3);si.tail.setAttribute('r',0);si.tip.setAttribute('r',0)}
+  });
+  // 批注箭头（开放箭头，多靶点共享源头）
+  SN.forEach(sn=>{
+    const b=B.get(sn.t),g=noteGeom(sn.n,b,t,sn.i),rel=!related||related.has('n:'+sn.n.id)||related.has('b:'+sn.t);
+    sn.g.style.opacity=rel?.95:.12;sn.vis.setAttribute('d',g.d);sn.hit.setAttribute('d',g.d);
+    sn.vis.setAttribute('stroke-width',selected==='n:'+sn.n.id?3.6:2.4);sn.vis.setAttribute('stroke-dasharray',`${11*px} ${7*px}`);
+    sn.head.setAttribute('d',arrow(g.fa,g.endA,16*px,'open'));sn.head.setAttribute('fill','none');sn.head.setAttribute('stroke-width',2.6);
+    sn.tail.setAttribute('cx',g.o.x);sn.tail.setAttribute('cy',g.o.y);sn.tail.setAttribute('r',6*px);sn.tip.setAttribute('r',0);
+  });
+  placeLabels(isRel);
+  // 选中 / 淡化
+  D.paragraphs.forEach(p=>{p.el.classList.toggle('sel',selected==='p:'+p.id);p.el.classList.toggle('dim',!!related&&!related.has('p:'+p.id))});
+  B.forEach(b=>{b.el.classList.toggle('sel',selected==='b:'+b.id);b.el.classList.toggle('dim',!!related&&!related.has('b:'+b.id));b.el.style.pointerEvents=T.tb>.45?'auto':'none'});
+  N.forEach(n=>{n.el.classList.toggle('sel',selected==='n:'+n.id);n.el.classList.toggle('dim',!!related&&!related.has('n:'+n.id))});
+  const lv=level();document.querySelectorAll('[data-level]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.level===lv)));
+}
+function level(){return T.tsrc>.5?4:T.tst>.5?3:T.ts>.5?2:1}
+const rects=[];
+function overlap(a,b){return Math.max(0,Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0))*Math.max(0,Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0))}
+function placeLabels(isRel){
+  const frames=D.paragraphs.map(p=>({x0:p.x,y0:p.y,x1:p.x+p.fw,y1:p.y+p.fh})).concat(D.notes.map(n=>({x0:n.x,y0:n.y,x1:n.x+n.w,y1:n.y+n.h})));
+  const placed=[];
+  const put=(l,g,useBlocks,cands)=>{
+    const w=l._sz[LANG].w,h=l._sz[LANG].h;let best=null;
+    for(const tt of cands){const m=bez(g.fp,g.c1,g.c2,g.tp,tt),r={x0:m.x-w/2-8,y0:m.y-h/2-8,x1:m.x+w/2+8,y1:m.y+h/2+8};
+      let cost=placed.reduce((a,q)=>a+overlap(r,q)*3,0)+frames.reduce((a,q)=>a+overlap(r,q),0)+Math.abs(tt-.5)*40;
+      if(!best||cost<best.cost)best={cost,m,r};if(cost<25)break}
+    l.style.left=best.m.x+'px';l.style.top=best.m.y+'px';placed.push(best.r);l._rect=best.r;
+  };
+  const C=[.5,.42,.58,.34,.66,.27,.73,.2,.8];
+  SP.forEach((sp,k)=>{const l=sp.label,op=sp.op;l.style.opacity=op;l.style.display=op<.02?'none':'';l.style.pointerEvents=op>.5?'auto':'none';if(op>=.02)put(l,sp.geo,false,C);
+    l.classList.toggle('dim',!!related&&!sp.list.some(x=>related.has('x:'+x.id)))});
+  SX.forEach(sx=>{const l=sx.label,op=T.tl*T.tb;l.style.opacity=op;l.style.display=op<.02?'none':'';l.style.pointerEvents=op>.5?'auto':'none';if(op>=.02)put(l,sx.geo,true,C);
+    l.classList.toggle('dim',!!related&&!related.has('x:'+sx.e.id));l.classList.toggle('sel',selected==='x:'+sx.e.id)});
+  SI.forEach(si=>{const l=si.label,op=T.tin;l.style.opacity=op;l.style.display=op<.02?'none':'';l.style.pointerEvents=op>.5?'auto':'none';
+    l.classList.toggle('dim',!!related&&!related.has('i:'+si.e.id));l.classList.toggle('sel',selected==='i:'+si.e.id)});
+}
+
+/* ---------- 关联集合 ---------- */
+function relSet(ref){
+  const R=new Set([ref]),[k,id]=ref.split(':');
+  const addB=bid=>{R.add('b:'+bid);R.add('p:'+B.get(bid).pid)};
+  const addX=e=>{R.add('x:'+e.id);addB(e.from);addB(e.to)},addI=e=>{R.add('i:'+e.id);addB(e.from);addB(e.to)};
+  const addN=n=>{R.add('n:'+n.id);n.targets.forEach(addB)};
+  if(k==='b'){addB(id);D.crossEdges.filter(e=>e.from===id||e.to===id).forEach(addX);I.forEach(e=>{if(e.from===id||e.to===id)addI(e)});D.notes.filter(n=>n.targets.includes(id)).forEach(n=>{R.add('n:'+n.id)})}
+  if(k==='p'){const p=P.get(id);p.blocks.forEach(b=>addB(b.id));p.internalEdges.forEach(addI);D.crossEdges.filter(e=>B.get(e.from).pid===id||B.get(e.to).pid===id).forEach(addX);D.notes.filter(n=>n.targets.some(t=>B.get(t).pid===id)).forEach(n=>R.add('n:'+n.id))}
+  if(k==='x')addX(X.get(id));
+  if(k==='i')addI(I.get(id));
+  if(k==='n')addN(N.get(id));
+  if(k==='pair')pairs.get(id).forEach(addX);
+  return R;
+}
+
+/* ---------- 详情 ---------- */
+const PB=document.getElementById('pbody'),PT=document.getElementById('pt'),PI=document.getElementById('pids'),PANEL=document.getElementById('panel');
+function sec(title,text,cls){el('h3','',title,PB);return el('p',cls||'',text,PB)}
+function badge(text,cls,parent){return el('span','badge '+(cls||''),text,parent)}
+function linkTo(ref,text,parent){const b=el('button','link',text,parent);b.onclick=()=>select(ref,true);return b}
+function relList(title,items){if(!items.length)return;el('h3','',title,PB);const ul=el('ul','',null,PB);items.forEach(([ref,text,extra])=>{const li=el('li','',null,ul);linkTo(ref,text,li);if(extra)li.append(' '+extra)})}
+const colon=()=>LANG==='en'?': ':'：',paren=s=>LANG==='en'?` (${s})`:`（${s}）`;
+function edgeText(e){const a=B.get(e.from),b=B.get(e.to),dir=TYPE[e.type][2]?' → ':' ↔ ';return `${tr(a,'title')}${dir}${tr(b,'title')}`}
+function boundaryBox(text){if(!text)return;el('h3','',u('boundary'),PB);el('p','boundary',text,PB)}
+function locateRow(ref){const r=el('div','row',null,PB);const b=el('button','',u('locate'),r);b.onclick=()=>focusOn(ref);return r}
+function srcP(text){const p=el('p','source',text,PB);p.lang='en';return p}
+function showDetail(ref){
+  const [k,id]=ref.split(':');PB.replaceChildren();PI.textContent='';let pc='#2d4c63';const zh=LANG==='zh';
+  if(k==='b'){const b=B.get(id),p=P.get(b.pid);pc=CAT[p.category][0];
+    PT.textContent=tr(b,'title');PI.textContent=`${b.id} · P${p.number} ${tr(p,'title')}`;
+    const r=el('div','',null,PB);badge(kindName(b.kind),'',r);badge(tr(b,'status'),b.kind==='template'?'warn':'',r);
+    locateRow(ref,4);
+    sec(u('summary'),tr(b,'summary'));
+    sec(u('role'),`P${p.number} · ${tr(p,'role')}`);sec(u('org'),tr(p,'structure'));
+    el('h3','',u('bsrc',{n:p.number,a:b.sourceStart,b:b.sourceEnd}),PB);srcP(b.sourceText);
+    relList(u('inner'),p.internalEdges.filter(e=>e.from===id||e.to===id).map(e=>['i:'+e.id,typeName(e.type)+colon()+tr(e,'label'),paren(edgeText(e))]));
+    relList(u('cross'),D.crossEdges.filter(e=>e.from===id||e.to===id).map(e=>['x:'+e.id,typeName(e.type)+colon()+tr(e,'label'),paren(edgeText(e)+' · '+statName(e.status))]));
+    relList(u('notesHere'),D.notes.filter(n=>n.targets.includes(id)).map(n=>['n:'+n.id,tr(n,'title'),'']));
+    if(zh)sec(u('zhPara'),p.sourceChinese,'zh');
+    boundaryBox(tr(p,'boundary'));
+  }else if(k==='p'){const p=P.get(id);pc=CAT[p.category][0];
+    PT.textContent=`P${p.number} · ${tr(p,'title')}`;PI.textContent=`${p.id} · ${u('nblocks',{n:p.blocks.length})}`;
+    badge(tr(p,'role'),'',el('div','',null,PB));locateRow(ref,2);
+    sec(u('pfun'),tr(p,'role'));sec(u('org'),tr(p,'structure'));
+    relList(u('blocks'),p.blocks.map(b=>['b:'+b.id,tr(b,'title'),`· ${kindName(b.kind)} · ${tr(b,'status')}`]));
+    if(p.groups.length)relList(u('groups'),p.groups.map(g=>['b:'+g.blocks[0],tr(g,'title'),paren(g.blocks.map(x=>tr(B.get(x),'title')).join(' / '))]));
+    relList(u('inner'),p.internalEdges.map(e=>['i:'+e.id,typeName(e.type)+colon()+tr(e,'label'),'']));
+    relList(u('cross'),D.crossEdges.filter(e=>B.get(e.from).pid===id||B.get(e.to).pid===id).map(e=>['x:'+e.id,typeName(e.type)+colon()+tr(e,'label'),paren(edgeText(e))]));
+    relList(u('relNotes'),D.notes.filter(n=>n.targets.some(t=>B.get(t).pid===id)).map(n=>['n:'+n.id,tr(n,'title'),'']));
+    el('h3','',u('psrc'),PB);srcP(p.sourceText);
+    if(zh)sec(u('zhPara'),p.sourceChinese,'zh');
+    boundaryBox(tr(p,'boundary'));
+    el('h3','',u('notLinked'),PB);const ul=el('ul','',null,PB);(zh?D.notLinked:D.notLinked_en).forEach(t=>el('li','',t,ul));
+  }else if(k==='x'||k==='i'){const e=(k==='x'?X:I).get(id),a=B.get(e.from),b=B.get(e.to),dr=TYPE[e.type][2];pc=TCOL(e.type);
+    PT.textContent=tr(e,'label');PI.textContent=`${e.id} · ${u(k==='x'?'xsub':'isub')}`;
+    const r=el('div','',null,PB);badge(typeName(e.type)+u(dr?'dir':'undir'),'',r);badge(statName(e.status),STATUS[e.status][2],r);
+    locateRow(ref,3);
+    el('h3','',u(dr?'from':'endA'),PB);linkTo('b:'+a.id,`${a.id} · P${P.get(a.pid).number} ${tr(a,'title')}`,el('p','',null,PB));
+    el('h3','',u(dr?'to':'endB'),PB);linkTo('b:'+b.id,`${b.id} · P${P.get(b.pid).number} ${tr(b,'title')}`,el('p','',null,PB));
+    sec(u('rtype'),typeName(e.type)+colon()+typeDesc(e.type));
+    sec(u('basis'),statName(e.status)+colon()+statDesc(e.status));
+    sec(u('why'),tr(e,'reason'));
+    if(tr(e,'caution')){el('h3','',u('caution'),PB);el('p','boundary',tr(e,'caution'),PB)}
+    if(tr(e,'review')){el('h3','',u('review'),PB);el('p','review',tr(e,'review'),PB)}
+    el('h3','',u('ends'),PB);srcP(a.sourceText);srcP(b.sourceText);
+  }else if(k==='n'){const n=N.get(id);pc='#b77822';
+    PT.textContent=tr(n,'title');PI.textContent=`${n.id} · ${tr(n,'status')}`;
+    const r=el('div','',null,PB);badge(tr(n,'status'),'warn',r);badge(u('noAnswer'),'warn',r);locateRow(ref,4);
+    sec(u('ntext'),tr(n,'text'));el('h3','',u('uw'),PB);el('p','user','“'+tr(n,'userWords')+'”',PB);
+    if(!zh){el('h3','',u('uwo'),PB);const q=el('p','user','“'+n.userWords+'”',PB);q.lang='zh-CN'}
+    sec(u('reading'),tr(n,'reading'));
+    relList(u('targets'),n.targets.map(t=>['b:'+t,`${t} · ${tr(B.get(t),'title')}`,n.addedTargets.includes(t)?u('added').trim():'']));
+    el('h3','',u('review'),PB);el('p','review',tr(n,'review'),PB);
+    el('h3','',u('nbt'),PB);el('p','boundary',u('nbound'),PB);
+  }else if(k==='pair'){const list=pairs.get(id),[a,b]=id.split('|').map(x=>P.get(x));
+    PT.textContent=`P${a.number} ↔ P${b.number} · ${(zh?D.pairLabels:D.pairLabels_en)[id]||''}`;PI.textContent=u('psub',{n:list.length});
+    locateRow(ref);
+    relList(u('plist'),list.map(e=>['x:'+e.id,typeName(e.type)+colon()+tr(e,'label'),paren(edgeText(e)+' · '+statName(e.status))]));
+  }
+  PANEL.style.setProperty('--pc',pc);PB.scrollTop=0;
+}
+function select(ref,force){
+  if(!force&&selected===ref){close();return}
+  selected=ref;related=relSet(ref);showDetail(ref);PANEL.classList.add('open');schedule();
+}
+function close(){selected=null;related=null;PANEL.classList.remove('open');schedule()}
+
+/* ---------- 交互 ---------- */
+let drag=null;const pts=new Map();let pinch=null;
+V.addEventListener('wheel',e=>{e.preventDefault();cancelAnimationFrame(anim);const r=V.getBoundingClientRect();
+  let dy=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?400:1);const k=e.ctrlKey?0.01:0.0016;
+  zoomAt(cam.s*Math.exp(-dy*k),e.clientX-r.left,e.clientY-r.top)},{passive:false});
+V.addEventListener('pointerdown',e=>{
+  if(e.button!==0&&e.pointerType==='mouse')return;cancelAnimationFrame(anim);
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});try{V.setPointerCapture(e.pointerId)}catch(_){}
+  if(pts.size===2){const [a,b]=[...pts.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),s:cam.s};drag=null;return}
+  drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,moved:false,target:e.target};
+});
+V.addEventListener('pointermove',e=>{
+  if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pts.size===2){const [a,b]=[...pts.values()],r=V.getBoundingClientRect();zoomAt(pinch.s*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);return}
+  if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.moved&&Math.hypot(dx,dy)>5){drag.moved=true;V.classList.add('dragging')}
+  if(drag.moved)setCam(cam.s,drag.cx+dx,drag.cy+dy);
+});
+function endPointer(e,cancel){
+  pts.delete(e.pointerId);if(pts.size<2)pinch=null;
+  if(!drag)return;const d=drag;drag=null;V.classList.remove('dragging');
+  if(cancel||d.moved)return;
+  const hit=d.target.closest&&d.target.closest('[data-ref]');
+  if(hit)select(hit.dataset.ref);else if(selected)close();
+}
+V.addEventListener('pointerup',e=>endPointer(e,false));
+V.addEventListener('pointercancel',e=>endPointer(e,true));
+document.getElementById('btn-close').onclick=close;
+document.getElementById('btn-fit').onclick=()=>fit(true);
+const cz=f=>{const s=clamp(cam.s*f,minS(),maxS),cx=V.clientWidth/2,cy=V.clientHeight/2,w=worldAt(cx,cy);animateTo(s,cx-w.x*s,cy-w.y*s,220)};
+document.getElementById('btn-in').onclick=()=>cz(1.4);
+document.getElementById('btn-out').onclick=()=>cz(1/1.4);
+document.querySelectorAll('[data-level]').forEach(b=>b.onclick=()=>{const lv=+b.dataset.level;
+  if(lv===1){fit(true);return}
+  if(selected){focusOn(selected.startsWith('pair')&&lv>1?'x:'+pairs.get(selected.slice(5))[0].id:selected,lv)}else{const s=L()[lv],cx=V.clientWidth/2,cy=V.clientHeight/2,w=worldAt(cx,cy);animateTo(s,cx-w.x*s,cy-w.y*s)}});
+window.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,textarea'))return;
+  if(e.key==='Escape'){close();infoOpen(false);document.getElementById('testbox').classList.remove('show')}
+  else if(e.key==='+'||e.key==='=')cz(1.4);else if(e.key==='-')cz(1/1.4);else if(e.key==='0')fit(true)});
+let lastW=0,lastH=0;
+new ResizeObserver(()=>{const w=V.clientWidth,h=V.clientHeight;if(!lastW){lastW=w;lastH=h;return}
+  const c=worldAt(lastW/2,lastH/2),rel=cam.s/fitS;fitS=Math.min((w-80)/WORLD.w,(h-80)/WORLD.h);
+  const s=clamp(fitS*rel,minS(),maxS);setCam(s,w/2-c.x*s,h/2-c.y*s);lastW=w;lastH=h}).observe(V);
+
+/* ---------- 自检 ---------- */
+async function selftest(){
+  const out=[],ok=(zh,en,pass,detail='')=>out.push({zh,en,pass:!!pass,detail});
+  const saved={...cam},savedSel=selected;close();
+  let allEq=true,domEq=true,rangeEq=true;
+  D.paragraphs.forEach(p=>{if(p.blocks.map(b=>b.sourceText).join(' ')!==p.sourceText)allEq=false;
+    p.blocks.forEach(b=>{if(b.srcEl.textContent!==b.sourceText)domEq=false;if(p.sourceText.slice(b.sourceStart,b.sourceEnd)!==b.sourceText)rangeEq=false})});
+  ok(`块原文按顺序连接等于段落原文（${P.size} 段）`,`Blocks join back into each paragraph (${P.size} paragraphs)`,allEq);
+  ok(`画布中显示的原文与数据逐字一致（${B.size} 块）`,`Text on the canvas matches the data verbatim (${B.size} blocks)`,domEq);
+  ok('块的字符区间可回溯到段落原文','Character ranges map back to the paragraph text',rangeEq);
+  try{const full=D.fileHeader+D.paragraphs.map(p=>p.sourceText).join(D.paragraphJoiner)+D.fileTail;
+    const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(full));const hex=[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('');
+    ok('重组全文的 SHA-256 等于源文件','SHA-256 of the rebuilt file equals the source file',hex===D.sourceSha256,hex.slice(0,16)+'…')}catch(err){ok('重组全文的 SHA-256 等于源文件','SHA-256 of the rebuilt file equals the source file',false,'crypto.subtle: '+err.message)}
+  const keep=LANG,clipped=new Set();
+  for(const lg of['zh','en']){LANG=lg;applyText();[...B.values()].forEach(b=>{if(b.el.scrollHeight>b.el.clientHeight+1||b.el.scrollWidth>b.el.clientWidth+1)clipped.add(lg+':'+b.id)});
+    D.notes.forEach(n=>{if(n.el.scrollHeight>n.el.clientHeight+1)clipped.add(lg+':'+n.id)});
+    D.paragraphs.forEach(p=>{const o=p.el.querySelector('.over');if(o.scrollHeight>o.clientHeight+1)clipped.add(lg+':'+p.id)})}
+  LANG=keep;applyText();
+  ok('两种语言下文字都完整容纳（无截断）','Text fits in both languages, with nothing cut off',!clipped.size,[...clipped].join(', '));
+  const rs=[...B.values()].map(b=>({id:b.id,x0:b.x,y0:b.y,x1:b.x+b.w,y1:b.y+b.h})).concat(D.paragraphs.map(p=>({id:p.id,x0:p.x,y0:p.y,x1:p.x+p.fw,y1:p.y+p.fh,frame:1}))).concat(D.notes.map(n=>({id:n.id,x0:n.x,y0:n.y,x1:n.x+n.w,y1:n.y+n.h,frame:1})));
+  const bad=[];for(let i=0;i<rs.length;i++)for(let j=i+1;j<rs.length;j++){const a=rs[i],b=rs[j];if(a.frame!==b.frame)continue;if(overlap(a,b)>0)bad.push(a.id+'×'+b.id)}
+  ok('段落框、功能块、批注互不重叠','Frames, blocks and notes do not overlap',!bad.length,bad.join(', '));
+  const blk=[...B.values()].map(b=>({x0:b.x,y0:b.y,x1:b.x+b.w,y1:b.y+b.h})),lb=[];
+  for(const lg of['zh','en'])SI.forEach(si=>{const l=si.label,z=l._sz[lg],x=parseFloat(l.style.left),y=parseFloat(l.style.top),r={x0:x-z.w/2,y0:y-z.h/2,x1:x+z.w/2,y1:y+z.h/2};if(blk.some(q=>overlap(r,q)>4))lb.push(lg+':'+si.e.id)});
+  ok('段内关系标签位于块之间的空隙（两种语言）','Link labels sit in the gaps between blocks (both languages)',!lb.length,lb.join(', '));
+  const posBefore=[...B.values()].map(b=>b.el.style.left+b.el.style.top+b.el.style.height).join();
+  applyLang(LANG==='en'?'zh':'en');applyLang(keep);
+  ok('切换语言不移动任何块','Switching language moves nothing',posBefore===[...B.values()].map(b=>b.el.style.left+b.el.style.top+b.el.style.height).join());
+  fit();render();const r=V.getBoundingClientRect(),cxi=Math.round(r.left+V.clientWidth*0.37),cyi=Math.round(r.top+V.clientHeight*0.61),sx=cxi-r.left,sy=cyi-r.top,w0=worldAt(sx,sy);
+  for(let i=0;i<6;i++)V.dispatchEvent(new WheelEvent('wheel',{deltaY:-200,clientX:cxi,clientY:cyi,bubbles:true,cancelable:true}));
+  const w1=worldAt(sx,sy),d1=Math.hypot(w1.x-w0.x,w1.y-w0.y);ok('滚轮放大时光标处位置不变','Zooming in keeps the point under the cursor fixed',d1<0.5,`×${(cam.s/fitS).toFixed(2)} · Δ ${d1.toFixed(3)}`);
+  for(let i=0;i<4;i++)V.dispatchEvent(new WheelEvent('wheel',{deltaY:180,clientX:cxi,clientY:cyi,bubbles:true,cancelable:true}));
+  const w2=worldAt(sx,sy),d2=Math.hypot(w2.x-w0.x,w2.y-w0.y);ok('滚轮缩小时光标处位置不变','Zooming out keeps the point under the cursor fixed',d2<0.5,`Δ ${d2.toFixed(3)}`);
+  const b=[...B.values()][Math.floor(B.size/2)],bref='b:'+b.id;cancelAnimationFrame(anim);{const s=L()[2];setCam(s,V.clientWidth/2-(b.x+b.w/2)*s,V.clientHeight/2-(b.y+b.h/2)*s)}render();
+  const br=b.el.getBoundingClientRect(),px0=br.left+br.width/2,py0=br.top+br.height/2,tgt=document.elementFromPoint(px0,py0)||b.el;
+  const pe=(type,x,y,target)=>(target||V).dispatchEvent(new PointerEvent(type,{pointerId:7,pointerType:'mouse',button:0,buttons:1,clientX:x,clientY:y,bubbles:true,cancelable:true}));
+  const c0={...cam};pe('pointerdown',px0,py0,tgt);pe('pointermove',px0+30,py0+10);pe('pointermove',px0+90,py0+40);pe('pointerup',px0+90,py0+40);
+  ok('拖动块本身只平移，不打开详情','Dragging a block only pans and opens nothing',selected===null&&Math.abs(cam.x-c0.x-90)<1&&Math.abs(cam.y-c0.y-40)<1,`(${(cam.x-c0.x).toFixed(0)}, ${(cam.y-c0.y).toFixed(0)})`);
+  render();const br2=b.el.getBoundingClientRect(),qx=br2.left+br2.width/2,qy=br2.top+br2.height/2,tg2=document.elementFromPoint(qx,qy)||b.el;
+  pe('pointerdown',qx,qy,tg2);pe('pointerup',qx,qy);ok('点击块打开详情','Clicking a block opens the detail panel',selected===bref&&PANEL.classList.contains('open'),selected||'');
+  pe('pointerdown',qx,qy,tg2);pe('pointerup',qx,qy);ok('再次点击同一块收起详情','Clicking it again closes the panel',selected===null&&!PANEL.classList.contains('open'));
+  select('x:'+D.crossEdges[0].id);document.getElementById('btn-close').click();ok('关闭按钮收起详情','The close button closes the panel',selected===null&&!PANEL.classList.contains('open'));
+  select('n:'+D.notes[0].id);window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));ok('Esc 收起详情','Esc closes the panel',selected===null);
+  select('p:'+D.paragraphs[0].id);pe('pointerdown',5,5,V);pe('pointerup',5,5);ok('点击空白处收起详情','Clicking empty canvas closes the panel',selected===null);
+  const lv=[];for(const l of[1,2,3,4]){const s=L()[l];setCam(s,cam.x,cam.y);render();lv.push(level())}
+  ok('四个层级可分别到达','Each of the four levels can be reached',lv.join()==='1,2,3,4',lv.join(' / '));
+  setCam(L()[4],cam.x,cam.y);render();const fs=parseFloat(getComputedStyle(b.srcEl).fontSize)*cam.s;
+  ok('原文层英文原文完全显现且字号可读','At the source level the text is fully shown and readable',T.tsrc>=.99&&fs>=13,`${fs.toFixed(1)} px`);
+  fit();render();const ov=D.paragraphs[0].el.querySelector('.over .pg'),ofs=parseFloat(getComputedStyle(ov).fontSize)*cam.s,tfs=parseFloat(getComputedStyle(D.paragraphs[0].el.querySelector('.over .pt')).fontSize)*cam.s;
+  ok('全景层段落标题与一句话概括可读','In the overview, titles and gists are readable',V.clientWidth<1000||(tfs>=14&&ofs>=10.5&&T.tb<.05),`${tfs.toFixed(1)} / ${ofs.toFixed(1)} px`);
+  {const refs=[...P.keys()].map(i=>'p:'+i).concat([...B.keys()].map(i=>'b:'+i),[...X.keys()].map(i=>'x:'+i),[...I.keys()].map(i=>'i:'+i),[...N.keys()].map(i=>'n:'+i),[...pairs.keys()].map(i=>'pair:'+i)),bad2=[];
+    for(const ref of refs){select(ref,true);focusOn(ref,null,true);render();
+      const pure=['tb','tov','ts','tst','tsrc','tl','tin','tpl'].every(k=>T[k]<.02||T[k]>.98);
+      const [k,id]=ref.split(':'),tgt=k==='p'?P.get(id).el:k==='b'?B.get(id).el:k==='n'?N.get(id).el:k==='x'?SX.get(id).label:k==='i'?SI.get(id).label:SP.get(id).label;
+      const A=visibleArea(),vr=V.getBoundingClientRect(),er=tgt.getBoundingClientRect(),op=parseFloat(getComputedStyle(tgt).opacity);
+      const vis=er.right>vr.left+A.x+8&&er.left<vr.left+A.x+A.w-8&&er.bottom>vr.top+A.y+8&&er.top<vr.top+A.y+A.h-8&&op>.9&&!tgt.classList.contains('cull');
+      if(!pure||!vis)bad2.push(ref+(pure?'':'(mix)')+(vis?'':'(hidden)'))}
+    close();ok('“在图中定位”后层级纯净且目标可见（全部对象）','After “Locate”, the level is clean and the target is visible (every object)',!bad2.length,bad2.length?bad2.join(', '):refs.length+' ✓')}
+  {const t0=performance.now();for(let i=0;i<20;i++){setCam(cam.s*(i%2?1.03:1/1.03),cam.x,cam.y);render()}const ms=(performance.now()-t0)/20;ok('单帧重绘耗时','Redraw time per frame',ms<16,ms.toFixed(1)+' ms')}
+  setCam(saved.s,saved.x,saved.y);if(savedSel)select(savedSel,true);
+  window.__selftest=out;showTests(out);return out;
+}
+let lastTests=null;
+function showTests(out){lastTests=out;const box=document.getElementById('testbox');box.replaceChildren();
+  const n=out.filter(x=>x.pass).length;const h=el('div','',null,box);el('b','',u('tres',{a:n,b:out.length}),h);
+  const c=el('button','ib',null,h);c.style.float='right';c.title=u('close');c.innerHTML='<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>';c.onclick=()=>box.classList.remove('show');
+  out.forEach(t=>{const r=el('div','t '+(t.pass?'pass':'fail'),null,box);el('b','',u(t.pass?'pass':'fail'),r);const s=el('span','',LANG==='en'?t.en:t.zh,r);if(t.detail){s.append(' ');el('span','d',t.detail,s)}});box.classList.add('show')}
+document.getElementById('btn-test').onclick=()=>selftest();
+/* ---------- 语言与说明浮窗 ---------- */
+function applyLang(lg){
+  LANG=lg;applyText();document.documentElement.lang=lg==='en'?'en':'zh-CN';document.title=u('title');
+  document.getElementById('app-title').textContent=u('title');V.setAttribute('aria-label',u('vp'));
+  document.querySelectorAll('[data-tip]').forEach(b=>{const t=u(b.dataset.tip);b.title=t;b.setAttribute('aria-label',t)});
+  document.getElementById('info-body').innerHTML=INFO[lg]();
+  if(selected)showDetail(selected);
+  if(lastTests&&document.getElementById('testbox').classList.contains('show'))showTests(lastTests);
+  schedule();
+}
+const INFOBOX=document.getElementById('info'),BI=document.getElementById('btn-info');
+function infoOpen(on){INFOBOX.classList.toggle('open',on);BI.classList.toggle('on',on)}
+BI.onclick=e=>{e.stopPropagation();infoOpen(!INFOBOX.classList.contains('open'))};
+document.getElementById('btn-info-close').onclick=()=>infoOpen(false);
+document.addEventListener('pointerdown',e=>{if(INFOBOX.classList.contains('open')&&!INFOBOX.contains(e.target)&&!BI.contains(e.target))infoOpen(false)},true);
+document.getElementById('btn-lang').onclick=()=>applyLang(LANG==='en'?'zh':'en');
+
+/* ---------- 启动 ---------- */
+(document.fonts&&document.fonts.ready||Promise.resolve()).then(async()=>{
+  layout();buildEdges();applyLang(LANG);lastW=V.clientWidth;lastH=V.clientHeight;fit();render();
+  const A=window.SOP_AUTOTEST;
+  if(A){if(A.selftest)await selftest();
+    if(A.dump){const box=document.getElementById('testbox');box.textContent=JSON.stringify({W:WORLD.w,H:WORLD.h,rowH:WORLD.rowH,fw:WORLD.fw,fit:fitS,vw:V.clientWidth,vh:V.clientHeight,frames:D.paragraphs.map(p=>[p.id,p.fh,p.rh]),notes:D.notes.map(n=>[n.id,n.h])});box.classList.add('show')}
+    if(A.lang)applyLang(A.lang);
+    if(A.info)infoOpen(true);
+    if(A.select)select(A.select,true);
+    if(A.select&&A.locate){focusOn(A.select,A.level||null,true);render()}
+    if(A.focus){cancelAnimationFrame(anim);const r=boxOf(A.focus),s=A.scale||L()[A.level||2];const ty=A.top?r.y+(V.clientHeight/2-40)/s:r.y+r.h/2;setCam(s,V.clientWidth/2-(A.panelShift||0)-(r.x+r.w/2)*s+(A.dx||0),V.clientHeight/2-ty*s+(A.dy||0))}
+    else if(A.level&&!A.locate){const s=L()[A.level];zoomAt(s,V.clientWidth/2,V.clientHeight/2)}
+    if(!A.keepTests&&A.selftest&&!A.showTests)document.getElementById('testbox').classList.remove('show');
+    render();
+  }
+});
+window.sopMap={world:WORLD,camera:()=>({...cam}),select,close,fit,selftest,focusOn};
+})();
+</script>
+</body>
+</html>
