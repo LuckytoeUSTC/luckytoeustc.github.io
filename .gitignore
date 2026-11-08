@@ -1,0 +1,8 @@
+# Publish only website files; local research and editorial sources are private.
+/content/
+/archive/
+/references/
+/visual_review/
+/.visual-browser/
+__pycache__/
+*.log
